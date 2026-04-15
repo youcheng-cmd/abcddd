@@ -2,86 +2,86 @@ import streamlit as st
 import pandas as pd
 from docx import Document
 import io
-import re
 
-st.set_page_config(page_title="變壓器數據精確解析", layout="wide")
-st.title("⚡ 變壓器數據抓取與計算 (規格解析版)")
+st.set_page_config(page_title="變壓器縱向數據抓取", layout="wide")
+st.title("📑 變壓器數據自動化 (按序號分組抓取)")
 
 excel_file = st.file_uploader("請上傳您的 Excel 檔案", type=["xlsx"])
 
-def extract_capacity(text):
-    """
-    從字串中提取容量數值 (例如從 '3Φ3W 22.8kV-220V 500' 提取 500)
-    """
-    if pd.isna(text): return None
-    text = str(text).strip()
-    # 尋找字串末尾的數字 (可能是整數或小數)
-    match = re.search(r'(\d+\.?\d*)$', text)
-    if match:
-        return float(match.group(1))
-    return None
-
 if excel_file:
-    # 1. 讀取 Excel
+    # 讀取 Excel 原始資料
     raw_df = pd.read_excel(excel_file, header=None)
     
-    # 2. 定位標題列 (尋找包含「變壓器編號」或「容量」的行)
-    header_idx = None
-    for idx, row in raw_df.iterrows():
-        row_str = "".join(row.astype(str))
-        if "變壓器編號" in row_str and "容量" in row_str:
-            header_idx = idx
-            break
-            
-    if header_idx is not None:
-        df = pd.read_excel(excel_file, header=header_idx + 1)
-        df.columns = [str(c).replace('\n', '').strip() for c in df.columns]
+    # 1. 定位「序號」所在的座標 (row, col)
+    sn_row, sn_col = None, None
+    for r in range(len(raw_df)):
+        for c in range(len(raw_df.columns)):
+            if "序號" in str(raw_df.iloc[r, c]):
+                sn_row, sn_col = r, c
+                break
+        if sn_row is not None: break
+
+    if sn_row is not None:
+        # 2. 確定有多少個序號（從序號格子往右看，有數字的就是一組變壓器）
+        transformer_columns = []
+        for c in range(sn_col + 1, len(raw_df.columns)):
+            val = raw_df.iloc[sn_row, c]
+            if pd.notna(val) and str(val).strip().isdigit():
+                transformer_columns.append(c)
         
-        # 3. 定義欄位 (根據截圖精確匹配)
-        col_no = next((c for c in df.columns if "變壓器編號" in c), None)
-        col_cap_spec = next((c for c in df.columns if "容量" in c), None)
-        col_load = next((c for c in df.columns if "負載率" in c), None)
-        col_eff = next((c for c in df.columns if "效率" in c), None)
-
-        # 4. 數據清洗：解析容量
-        results = []
-        for idx, row in df.iterrows():
-            spec_text = row.get(col_cap_spec)
-            cap_value = extract_capacity(spec_text)
-            
-            # 如果抓不到容量數字，代表這行不是設備資料，跳過
-            if cap_value is None: continue
-            
-            # 取得負載率與效率 (處理百分比符號)
-            try:
-                load_p = float(str(row.get(col_load, 0)).replace('%','')) / 100
-                eff_b = float(str(row.get(col_eff, 0)).replace('%','')) / 100
+        # 3. 抓取每一組變壓器的資訊
+        # 掃描從序號那一列開始往下的所有資料
+        data_results = []
+        
+        for col_idx in transformer_columns:
+            transformer_data = {}
+            # 遍歷每一列，左邊是「標題」，右邊是「該序號的數值」
+            for r in range(sn_row, len(raw_df)):
+                # 取得左側的標題（可能在 sn_col 或往左幾格）
+                # 這裡尋找同一行中，序號左邊最靠近的文字描述
+                label = ""
+                for search_c in range(sn_col, -1, -1):
+                    if pd.notna(raw_df.iloc[r, search_c]):
+                        label = str(raw_df.iloc[r, search_c]).replace('\n', '').strip()
+                        break
                 
-                # --- 計算公式 ---
-                loss_total_b = cap_value * (1 - eff_b)
-                iron_b = loss_total_b * 0.25 
-                copper_b = (loss_total_b - iron_b) * (load_p**2)
-                
-                results.append({
-                    'no': row.get(col_no, idx+1),
-                    'spec': spec_text,       # 原始規格文字
-                    'cap': cap_value,        # 提取出的數字
-                    'load': f"{int(load_p*100)}%",
-                    'iron_b': round(iron_b, 3),
-                    'cop_b': round(copper_b, 3),
-                    'tot_b': round(iron_b + copper_b, 3),
-                    # 改善後預設 99%
-                    'saving': round((iron_b + copper_b) * 0.2, 3) # 暫定節省 20%
-                })
-            except:
-                continue
+                if label:
+                    val = raw_df.iloc[r, col_idx]
+                    transformer_data[label] = val
+            
+            data_results.append(transformer_data)
 
-        st.success(f"✅ 成功解析數據！已提取出 {len(results)} 台變壓器。")
-        st.write("### ⬇️ 數據提取結果 (請確認「容量」是否正確)：")
-        st.table(pd.DataFrame(results))
+        # 4. 轉換為表格預覽
+        final_df = pd.DataFrame(data_results)
+        
+        # 將標題整理乾淨（如果標題重複，只保留有意義的部分）
+        st.success(f"✅ 成功辨識！找到 {len(transformer_columns)} 組變壓器數據。")
+        
+        st.write("### 🤖 程式抓取到的各組變壓器數據：")
+        st.dataframe(final_df)
 
-        if st.button("🚀 生成報告"):
-            # ... (Word 生成代碼與之前相同)
-            st.info("點擊按鈕即可下載 Word 報告")
+        if st.button("🚀 產出 Word 資料表"):
+            doc = Document()
+            doc.add_heading('變壓器電能系統資料清單', 0)
+            
+            # 因為欄位很多，我們轉置表格讓它好讀（或是產出你指定的格式）
+            table = doc.add_table(rows=1, cols=len(final_df.columns))
+            table.style = 'Table Grid'
+            
+            # 填入標題
+            for i, col_name in enumerate(final_df.columns):
+                table.rows[0].cells[i].text = str(col_name)
+            
+            # 填入數據
+            for _, row in final_df.iterrows():
+                row_cells = table.add_row().cells
+                for i, val in enumerate(row):
+                    row_cells[i].text = str(val) if pd.notna(val) else ""
+
+            output = io.BytesIO()
+            doc.save(output)
+            output.seek(0)
+            st.download_button("📥 下載 Word 報告", output, "Transformer_Groups.docx")
+            
     else:
-        st.error("❌ 找不到標題列，請確認 Excel 中有『變壓器編號』與『容量』。")
+        st.error("❌ 無法定位到『序號』，請確認 Excel 中有這兩個字。")
