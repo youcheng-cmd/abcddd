@@ -7,7 +7,7 @@ import io
 from collections import Counter
 
 st.set_page_config(page_title="變壓器節能分析系統", layout="wide")
-st.title("📑 變壓器自動化報告 (自動功因抓取版)")
+st.title("📑 變壓器自動化分析報告")
 
 # --- 側邊欄設定區 ---
 st.sidebar.header("⚙️ 參數設定")
@@ -24,16 +24,15 @@ def set_font_kai(run, size=11, is_bold=False):
     run.font.name = '標楷體'
     run.font.size = Pt(size)
     run.font.bold = is_bold
-    run.font.color.rgb = RGBColor(0, 0, 0)
     r = run._element
     r.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
 
-excel_file = st.file_uploader("請上傳您的 Excel", type=["xlsx"])
+excel_file = st.file_uploader("請上傳您的 Excel 檔案", type=["xlsx"])
 
 if excel_file:
     all_sheets = pd.read_excel(excel_file, sheet_name=None, header=None)
     all_transformer_data = []
-    filter_keywords = ["註：", "註:", "1.", "2.", "3.", "4.", "變壓器型式請", "各迴路", "總盤抄表", "緊急發電機", "電能系統"]
+    filter_keywords = ["註：", "註:", "1.", "2.", "3.", "4.", "變壓器型式請", "各迴路", "總盤抄表", "緊急發電機"]
 
     for sheet_name, raw_df in all_sheets.items():
         anchors = []
@@ -48,10 +47,8 @@ if excel_file:
                 if target_col >= len(raw_df.columns): break
                 if str(raw_df.iloc[r_start, target_col]) in ["nan", ""]: continue
                 
-                d = {
-                    "建築物": "-", "編號": "-", "年份": 0, "廠牌": "-", "容量": 0, 
-                    "型式": "-", "負載率": 0.0, "鐵損": 0.0, "滿載銅損": 0.0, "現況功因": 0.8
-                }
+                d = {"建築物": "-", "編號": "-", "年份": 0, "廠牌": "-", "容量": 0, 
+                     "型式": "-", "負載率": 0.0, "鐵損": 0.0, "滿載銅損": 0.0, "現況功因": 0.8}
                 specs = []
                 
                 for r_offset in range(0, 50):
@@ -68,7 +65,7 @@ if excel_file:
                     val = str(raw_df.iloc[curr_r, target_col]).strip()
                     if label == "nan" or not label: continue
 
-                    # 數據提取
+                    # 自動數據抓取
                     if "位置" in label or "建築" in label: d["建築物"] = val
                     if "編號" in label: d["編號"] = val
                     if "廠牌" in label: d["廠牌"] = val
@@ -108,30 +105,37 @@ if excel_file:
                        (age_filter == "超過 15 年" and age < 15) or \
                        (age_filter == "超過 20 年" and age < 20): continue
                     
-                    # 計算
+                    # 損耗計算
                     d["實際銅損"] = d["滿載銅損"] * ((d["負載率"]/100)**2)
                     d["現況輸出功率"] = d["容量"] * d["現況功因"] * (d["負載率"]/100)
                     d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
                     all_transformer_data.append({"specs": specs, "analysis": d, "capacity": d["容量"], "usage_rate": d["負載率"]})
 
     if all_transformer_data:
-        # 統計摘要
+        # --- 數據摘要顯示區 ---
         total_capacity = sum(t["capacity"] for t in all_transformer_data)
         cap_counts = Counter(t["capacity"] for t in all_transformer_data)
         valid_usages = [t["usage_rate"] for t in all_transformer_data if t["usage_rate"] > 0]
         avg_usage = sum(valid_usages) / len(valid_usages) if valid_usages else 0
-
-        st.success(f"✅ 解析完成！已抓取 {len(all_transformer_data)} 台設備數據。")
         
-        # 顯示預覽表
-        df_preview = pd.DataFrame([t["analysis"] for t in all_transformer_data])
-        st.write("### 📋 改善前分析預覽")
-        st.dataframe(df_preview[["建築物", "編號", "現況功因", "現況輸出功率", "改善前耗能"]])
+        # 畫面摘要欄位 (找回的功能)
+        st.success(f"✅ 解析完成！符合篩選條件：共 {len(all_transformer_data)} 台")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("1. 總裝置容量", f"{total_capacity} kVA")
+            st.write("**2. 設備規格分布：**")
+            # 顯示如 1000kVA x 5台
+            for k, v in sorted(cap_counts.items(), reverse=True):
+                if k > 0: st.write(f"　🔹 {k} kVA × {v} 台")
+        with col2:
+            st.metric("3. 平均負載利用率", f"{avg_usage:.2f} %")
+            st.info(f"💡 改善後目標功因設定：{pf_after_input}%")
 
-        # --- 生成 Word 邏輯 (確保下載按鈕出現) ---
+        # --- Word 報告生成 ---
         doc = Document()
         
-        # 1. 設備統計總表
+        # 壹、統計總表
         doc.add_heading('壹、 設備統計總表', 1)
         sum_table = doc.add_table(rows=0, cols=2); sum_table.style = 'Table Grid'
         def add_sum_row(l, v):
@@ -142,10 +146,9 @@ if excel_file:
         cap_dist = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True) if k > 0])
         add_sum_row("設備規格分布", cap_dist)
         add_sum_row("平均負載利用率", f"{avg_usage:.2f} %")
-        add_sum_row("改善後目標功率因數", f"{pf_after_input} %")
         doc.add_page_break()
 
-        # 2. 改善前分析總表 (11欄)
+        # 貳、改善前數據分析表 (11欄)
         doc.add_heading('貳、 變壓器設備改善前數據分析表', 1)
         ana_table = doc.add_table(rows=1, cols=11); ana_table.style = 'Table Grid'
         headers = ["建築物", "編號", "年份", "廠牌", "容量", "型式", "負載率", "現況功因", "銅損(W)", "鐵損(W)", "改善前耗能"]
@@ -158,7 +161,7 @@ if excel_file:
             for i, val in enumerate(row_data): set_font_kai(row[i].paragraphs[0].add_run(str(val)), 8)
         doc.add_page_break()
 
-        # 3. 詳細數據
+        # 參、詳細設備資料
         doc.add_heading('參、 詳細設備數據', 1)
         for item in all_transformer_data:
             specs = item["specs"]
@@ -174,10 +177,10 @@ if excel_file:
         doc.save(output)
         output.seek(0)
 
-        # 確保按鈕在最後顯示
+        # 唯一的下載按鈕
         st.download_button(
-            label="📥 下載完整分析報告",
+            label="📥 下載完整報告",
             data=output,
-            file_name=f"Transformer_Energy_Report_{base_year}.docx",
+            file_name=f"Transformer_Report_{base_year}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
