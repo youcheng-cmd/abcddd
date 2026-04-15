@@ -6,18 +6,15 @@ from docx.oxml.ns import qn
 import io
 from collections import Counter
 
-st.set_page_config(page_title="變壓器節能分析系統", layout="wide")
-st.title("📊 變壓器節能改善分析 (改善前數據表)")
+st.set_page_config(page_title="變壓器節能分析系統-全功能版", layout="wide")
+st.title("📑 變壓器自動化報告 (統計總表 + 11欄分析表)")
 
 # --- 側邊欄設定區 ---
 st.sidebar.header("⚙️ 設定基準與參數")
-# 基準年份
 base_year = st.sidebar.number_input("請輸入基準年份：", min_value=1900, max_value=2100, value=2026)
-# 功率因數設定 (預設 95)
 pf_input = st.sidebar.number_input("設定功率因數 (%)：", min_value=0, max_value=100, value=95)
-power_factor = pf_input / 100  # 轉為小數供計算使用
+power_factor = pf_input / 100 
 
-# 機齡篩選
 age_filter = st.sidebar.selectbox(
     "選擇變壓器齡篩選：",
     ["顯示全部", "超過 10 年", "超過 15 年", "超過 20 年"]
@@ -27,11 +24,10 @@ def set_font_kai(run, size=11, is_bold=False):
     run.font.name = '標楷體'
     run.font.size = Pt(size)
     run.font.bold = is_bold
-    run.font.color.rgb = RGBColor(0, 0, 0)
     r = run._element
     r.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
 
-excel_file = st.file_uploader("請上傳您的 Excel (電能系統資料)", type=["xlsx"])
+excel_file = st.file_uploader("請上傳您的 Excel", type=["xlsx"])
 
 if excel_file:
     all_sheets = pd.read_excel(excel_file, sheet_name=None, header=None)
@@ -42,143 +38,144 @@ if excel_file:
         anchors = []
         for r in range(len(raw_df)):
             for c in range(len(raw_df.columns)):
-                cell_text = str(raw_df.iloc[r, c]).replace(' ', '').replace('\n', '')
-                if cell_text == "序號":
+                if str(raw_df.iloc[r, c]).replace(' ', '') == "序號":
                     anchors.append((r, c))
         
-        if anchors:
-            for r_start, c_start in anchors:
-                for offset in range(1, 10):
-                    target_col = c_start + offset
-                    if target_col >= len(raw_df.columns): break
+        for r_start, c_start in anchors:
+            for offset in range(1, 10):
+                target_col = c_start + offset
+                if target_col >= len(raw_df.columns): break
+                if str(raw_df.iloc[r_start, target_col]) in ["nan", ""]: continue
+                
+                d = {"建築物": "-", "編號": "-", "年份": 0, "廠牌": "-", "容量": 0, 
+                     "型式": "-", "負載率": 0.0, "鐵損": 0.0, "滿載銅損": 0.0}
+                specs = []
+                
+                for r_offset in range(0, 50):
+                    curr_r = r_start + r_offset
+                    if curr_r >= len(raw_df): break
+                    label = str(raw_df.iloc[curr_r, c_start]).replace('\n', '').strip()
+                    if (label == "nan" or label == "") and c_start > 0:
+                        label = str(raw_df.iloc[curr_r, c_start-1]).replace('\n', '').strip()
                     
-                    sn_val = str(raw_df.iloc[r_start, target_col]).strip()
-                    if sn_val == "nan" or sn_val == "": continue
+                    label_clean = label.replace(' ', '')
+                    if r_offset > 0 and label_clean == "序號": break
+                    if any(k in label_clean for k in filter_keywords): continue
                     
-                    # 初始化該台設備的分析數據
-                    d = {"建築物": "-", "編號": "-", "年份": 0, "廠牌": "-", "容量": 0, 
-                         "型式": "-", "負載率": 0.0, "鐵損": 0.0, "滿載銅損": 0.0}
-                    
-                    specs = []
-                    for r_offset in range(0, 50):
-                        curr_r = r_start + r_offset
-                        if curr_r >= len(raw_df): break
-                        
-                        label = str(raw_df.iloc[curr_r, c_start]).replace('\n', '').strip()
-                        if (label == "nan" or label == "") and c_start > 0:
-                            label = str(raw_df.iloc[curr_r, c_start-1]).replace('\n', '').strip()
-                        
-                        label_clean = label.replace(' ', '')
-                        if r_offset > 0 and label_clean == "序號": break
-                        if any(k in label_clean for k in filter_keywords): continue
-                        
-                        value = str(raw_df.iloc[curr_r, target_col]).strip()
-                        if label == "nan" or not label: continue
-                        
-                        # --- 精確提取分析用數據 ---
-                        if "建築物" in label: d["建築物"] = value
-                        if "編號" in label: d["編號"] = value
-                        if "廠牌" in label: d["廠牌"] = value
-                        if "型式" in label: d["型式"] = value
-                        if any(k in label for k in ["年份", "出廠"]):
-                            digits = ''.join(filter(str.isdigit, value))
-                            if digits:
-                                y = int(digits)
-                                d["年份"] = y + 1911 if y < 200 else y
-                        if "容量" in label:
-                            cap_digits = ''.join(filter(str.isdigit, value))
-                            if cap_digits: d["容量"] = int(cap_digits)
-                        if any(k in label for k in ["利用率", "負載率"]):
-                            u_raw = value.replace('%', '').strip()
-                            try:
-                                u_val = float(u_raw)
-                                d["負載率"] = u_val * 100 if 0 < u_val < 1 else u_val
-                            except: pass
-                        if "效率" in label:
-                            # 之後若要反推損耗可用
-                            pass
+                    val = str(raw_df.iloc[curr_r, target_col]).strip()
+                    if label == "nan" or not label: continue
 
-                        specs.append((label, value if value != "nan" else "-"))
+                    # 數據提取
+                    if "位置" in label or "建築" in label: d["建築物"] = val
+                    if "編號" in label: d["編號"] = val
+                    if "廠牌" in label: d["廠牌"] = val
+                    if "型式" in label: d["型式"] = val
+                    if any(k in label for k in ["年份", "出廠"]):
+                        digits = ''.join(filter(str.isdigit, val))
+                        if digits:
+                            y = int(digits)
+                            d["年份"] = y + 1911 if y < 200 else y
+                    if "容量" in label:
+                        cap_digits = ''.join(filter(str.isdigit, val))
+                        if cap_digits: d["容量"] = int(cap_digits)
+                    if any(k in label for k in ["利用率", "負載率"]):
+                        u_raw = val.replace('%', '').strip()
+                        try:
+                            u_val = float(u_raw)
+                            d["負載率"] = u_val * 100 if 0 < u_val < 1 else u_val
+                        except: pass
+                    if "無載損" in label or "鐵損" in label:
+                        i_num = ''.join(filter(str.isdigit, val))
+                        d["鐵損"] = int(i_num) if i_num else 0
+                    if "負載損" in label or "銅損" in label:
+                        cu_num = ''.join(filter(str.isdigit, val))
+                        d["滿載銅損"] = int(cu_num) if cu_num else 0
+
+                    specs.append((label, val if val != "nan" else "-"))
+                
+                if specs:
+                    age = base_year - d["年份"] if d["年份"] else 0
+                    if (age_filter == "超過 10 年" and age < 10) or \
+                       (age_filter == "超過 15 年" and age < 15) or \
+                       (age_filter == "超過 20 年" and age < 20): continue
                     
-                    if specs:
-                        age = base_year - d["年份"] if d["年份"] else 0
-                        # 篩選邏輯
-                        should_add = False
-                        if age_filter == "顯示全部": should_add = True
-                        elif "10" in age_filter and age >= 10: should_add = True
-                        elif "15" in age_filter and age >= 15: should_add = True
-                        elif "20" in age_filter and age >= 20: should_add = True
-                        
-                        if should_add:
-                            # --- 損耗與功率計算 ---
-                            # 1. 鐵損估計 (假設為容量的 0.2%)
-                            d["鐵損"] = d["容量"] * 2.0 
-                            # 2. 滿載銅損估計 (假設為容量的 1.2%)
-                            d["滿載銅損"] = d["容量"] * 12.0
-                            # 3. 實際銅損 = 滿載銅損 * (負載率/100)^2
-                            d["實際銅損"] = d["滿載銅損"] * ((d["負載率"]/100)**2)
-                            # 4. 輸出功率 = 容量 * 功因 * (負載率/100)
-                            d["輸出功率"] = d["容量"] * power_factor * (d["負載率"]/100)
-                            # 5. 改善前年耗能 = (鐵損 + 實際銅損) * 8760 / 1000
-                            d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
-                            
-                            all_transformer_data.append({"specs": specs, "analysis": d})
+                    # 計算數據
+                    d["實際銅損"] = d["滿載銅損"] * ((d["負載率"]/100)**2)
+                    d["輸出功率"] = d["容量"] * power_factor * (d["負載率"]/100)
+                    d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
+                    all_transformer_data.append({"specs": specs, "analysis": d, "capacity": d["容量"], "usage_rate": d["負載率"]})
 
     if all_transformer_data:
-        st.success(f"✅ 成功解析 {len(all_transformer_data)} 台設備。基準年份：{base_year}，功因：{pf_input}%")
+        # --- 1. 計算摘要數據 ---
+        total_capacity = sum(t["capacity"] for t in all_transformer_data)
+        cap_counts = Counter(t["capacity"] for t in all_transformer_data)
+        valid_usages = [t["usage_rate"] for t in all_transformer_data if t["usage_rate"] > 0]
+        avg_usage = sum(valid_usages) / len(valid_usages) if valid_usages else 0
+
+        st.success(f"✅ 解析完成！符合條件共 {len(all_transformer_data)} 台。")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("總裝置容量", f"{total_capacity} kVA")
+        col2.metric("平均負載利用率", f"{avg_usage:.1f} %")
+        col3.metric("功率因數設定", f"{pf_input} %")
+
+        # --- 2. 生成 Word ---
+        doc = Document()
         
-        # 預覽分析表
-        analysis_list = [t["analysis"] for t in all_transformer_data]
-        st.write("### 📋 改善前分析數據預覽")
-        st.dataframe(pd.DataFrame(analysis_list).drop(columns=['鐵損','滿載銅損']))
+        # 第一部分：設備統計總表
+        doc.add_heading('壹、 設備統計總表', 1)
+        sum_table = doc.add_table(rows=0, cols=2)
+        sum_table.style = 'Table Grid'
+        def add_sum_row(l, v):
+            row = sum_table.add_row().cells
+            set_font_kai(row[0].paragraphs[0].add_run(l), 12, True)
+            set_font_kai(row[1].paragraphs[0].add_run(v), 12)
+        add_sum_row("總裝置容量", f"{total_capacity} kVA")
+        cap_dist = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True) if k > 0])
+        add_sum_row("設備規格分布", cap_dist)
+        add_sum_row("平均負載利用率", f"{avg_usage:.2f} %")
+        doc.add_page_break()
 
-        if st.button("🚀 生成 Word 報告 (含 11 欄分析表)"):
-            doc = Document()
-            
-            # 1. 改善前分析總表
-            doc.add_heading('壹、 變壓器設備改善前數據分析表', 1)
-            table = doc.add_table(rows=1, cols=11)
-            table.style = 'Table Grid'
-            
-            headers = ["建築物", "編號", "年份", "廠牌", "容量", "型式", "負載率", "輸出功率", "銅損(W)", "鐵損(W)", "改善前耗能"]
-            units = ["", "", "", "", "(kVA)", "", "(%)", "(kW)", "", "", "(kWh/年)"]
-            
-            hdr_cells = table.rows[0].cells
-            for i, (h, u) in enumerate(zip(headers, units)):
-                p = hdr_cells[i].paragraphs[0]
-                set_font_kai(p.add_run(f"{h}\n{u}"), 9, True)
-            
-            for item in all_transformer_data:
-                d = item["analysis"]
-                row_cells = table.add_row().cells
-                data_row = [
-                    d["建築物"], d["編號"], d["年份"], d["廠牌"], d["容量"], d["型式"],
-                    f"{d['負載率']:.1f}%", f"{d['輸出功率']:.2f}", f"{d['實際銅損']:.1f}", 
-                    f"{d['鐵損']:.1f}", f"{int(d['改善前耗能'])}"
-                ]
-                for i, val in enumerate(data_row):
-                    p = row_cells[i].paragraphs[0]
-                    set_font_kai(p.add_run(str(val)), 8)
+        # 第二部分：改善前分析大表 (11欄)
+        doc.add_heading('貳、 變壓器設備改善前數據分析表', 1)
+        analysis_table = doc.add_table(rows=1, cols=11)
+        analysis_table.style = 'Table Grid'
+        headers = ["建築物", "編號", "年份", "廠牌", "容量", "型式", "負載率", "輸出功率", "銅損(W)", "鐵損(W)", "改善前耗能"]
+        hdr_cells = analysis_table.rows[0].cells
+        for i, h in enumerate(headers):
+            set_font_kai(hdr_cells[i].paragraphs[0].add_run(h), 9, True)
+        
+        for item in all_transformer_data:
+            d = item["analysis"]
+            row = analysis_table.add_row().cells
+            row[0].text = str(d["建築物"])
+            row[1].text = str(d["編號"])
+            row[2].text = str(d["年份"])
+            row[3].text = str(d["廠牌"])
+            row[4].text = str(d["容量"])
+            row[5].text = str(d["型式"])
+            row[6].text = f"{d['負載率']:.1f}%"
+            row[7].text = f"{d['輸出功率']:.2f}"
+            row[8].text = f"{d['實際銅損']:.1f}"
+            row[9].text = f"{d['鐵損']:.1f}"
+            row[10].text = f"{int(d['改善前耗能'])}"
+            for cell in row:
+                for p in cell.paragraphs: set_font_kai(p.runs[0] if p.runs else p.add_run(""), 8)
+        doc.add_page_break()
 
+        # 第三部分：詳細數據
+        doc.add_heading('參、 詳細設備數據', 1)
+        for item in all_transformer_data:
+            specs = item["specs"]
+            doc.add_paragraph().add_run(f"設備詳細資料 (序號：{specs[0][1]})").bold = True
+            t_detail = doc.add_table(rows=0, cols=2)
+            t_detail.style = 'Table Grid'
+            for l, v in specs:
+                cells = t_detail.add_row().cells
+                set_font_kai(cells[0].paragraphs[0].add_run(l), 10)
+                set_font_kai(cells[1].paragraphs[0].add_run(v), 10)
             doc.add_page_break()
-            
-            # 2. 詳細設備資料 (原本的內容)
-            doc.add_heading('貳、 詳細設備數據', 1)
-            for item in all_transformer_data:
-                specs = item["specs"]
-                p = doc.add_paragraph()
-                run_t = p.add_run(f"設備詳細資料 (序號：{specs[0][1]})")
-                set_font_kai(run_t, 14, is_bold=True)
-                
-                table_detail = doc.add_table(rows=0, cols=2)
-                table_detail.style = 'Table Grid'
-                for label, value in specs:
-                    cells = table_detail.add_row().cells
-                    set_font_kai(cells[0].paragraphs[0].add_run(label), 10)
-                    set_font_kai(cells[1].paragraphs[0].add_run(value), 10)
-                doc.add_page_break()
 
-            output = io.BytesIO()
-            doc.save(output)
-            output.seek(0)
-            st.download_button("📥 下載完整分析報告", output, f"Transformer_Analysis_{base_year}.docx")
+        output = io.BytesIO()
+        doc.save(output)
+        output.seek(0)
+        st.download_button("📥 下載完整分析報告", output, "Transformer_Full_Report.docx")
