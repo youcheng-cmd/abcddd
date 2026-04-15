@@ -90,9 +90,7 @@ if excel_file:
                         d["現況功因"] = n / 100 if n > 1 else n
                     
                     # 抓取損耗基礎值以利計算
-                    if any(k in label for k in ["鐵損", "無載損", "Wi"]): d["鐵損"] = extract_number(val)
-                    if any(k in label for k in ["銅損", "負載損", "Wc"]): d["滿載銅損"] = extract_number(val)
-
+                   
                     specs.append((label, val))
                 
                 if d["容量"] > 0:
@@ -102,10 +100,18 @@ if excel_file:
                        (age_filter == "超過 15 年" and age < 15) or \
                        (age_filter == "超過 20 年" and age < 20): continue
                     
-                    # --- 重點：損耗計算公式 (由現有資料算出) ---
-                    # A. 實際銅損 = 滿載銅損 * (負載率/100)^2
-                    d["實際銅損"] = d["滿載銅損"] * ((d["負載率"] / 100) ** 2)
-                    # B. 改善前耗能 (kWh/年) = (鐵損 + 實際銅損) * 8760 / 1000
+                   # --- 修改後的損耗計算公式 ---
+                    # 1. 自動計算基礎損耗 (根據容量估算)
+                    base_iron_loss = d["容量"] * 2.5    # 鐵損估算值 (W)
+                    base_copper_loss = d["容量"] * 13.0 # 滿載銅損估算值 (W)
+                    
+                    # 2. 實際銅損 = 滿載銅損 * (負載率/100)^2
+                    d["實際銅損"] = base_copper_loss * ((d["負載率"] / 100) ** 2)
+                    
+                    # 3. 鐵損 (固定值)
+                    d["鐵損"] = base_iron_loss
+                    
+                    # 4. 改善前耗能 (kWh/年) = (鐵損 + 實際銅損) * 8760 / 1000
                     d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
                     
                     all_transformer_data.append({"specs": specs, "analysis": d})
