@@ -81,7 +81,7 @@ if excel_file:
                         n = extract_number(val)
                         d["負載率"] = n * 100 if 0 < n < 1 else n
                     
-                  # --- 修改後的功因抓取邏輯 (精確對標圖中標籤) ---
+                    # --- 修改後的功因抓取邏輯 (精確對標圖中標籤) ---
                     label_pure = label.replace(' ', '').replace('\n', '')
                     if label_pure == "功因" or any(k in label_pure for k in ["功率因數", "PF", "P.F"]):
                         n = extract_number(val)
