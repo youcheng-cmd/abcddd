@@ -5,83 +5,90 @@ from docx.shared import Pt, RGBColor
 from docx.oxml.ns import qn
 import io
 
-st.set_page_config(page_title="全自動變壓器報告", layout="wide")
-st.title("📑 變壓器數據自動化報告 (支援無限台數)")
+st.set_page_config(page_title="變壓器分段報告生成器", layout="wide")
+st.title("📑 變壓器分能自動化報告 (支援分頁/分段抓取)")
 
 def set_font_kai(run, size=12, is_bold=False):
-    """設定字體為標楷體、黑色、指定大小"""
+    """設定標楷體、黑字"""
     run.font.name = '標楷體'
     run.font.size = Pt(size)
     run.font.bold = is_bold
     run.font.color.rgb = RGBColor(0, 0, 0)
-    # 中文字體特殊關鍵詞設定
     r = run._element
     r.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
 
 excel_file = st.file_uploader("請上傳您的 Excel 檔案", type=["xlsx"])
 
 if excel_file:
+    # 讀取 Excel 原始資料 (不設標題)
     raw_df = pd.read_excel(excel_file, header=None)
     
-    # 1. 尋找「序號」所在的起始座標
-    sn_row, sn_col = None, None
+    # 1. 找出所有「序號」出現的座標 (支援 A4 分頁跳行)
+    anchor_points = []
     for r in range(len(raw_df)):
         for c in range(len(raw_df.columns)):
             if "序號" in str(raw_df.iloc[r, c]):
-                sn_row, sn_col = r, c
-                break
-        if sn_row is not None: break
-
-    if sn_row is not None:
-        # 2. 自動偵測「所有」序號欄位 (從序號格往右一直找，直到沒數字為止)
-        transformer_cols = []
-        for c in range(sn_col + 1, len(raw_df.columns)):
-            val = raw_df.iloc[sn_row, c]
-            # 只要格子裡有內容，就認定是一台變壓器
-            if pd.notna(val) and str(val).strip() != "":
-                transformer_cols.append(c)
+                anchor_points.append((r, c))
+    
+    if anchor_points:
+        st.success(f"✅ 偵測到 {len(anchor_points)} 個數據區塊")
         
-        st.success(f"✅ 系統已自動偵測到：共 {len(transformer_cols)} 組變壓器數據")
+        all_transformers = []
+        
+        # 2. 針對每個「序號」區塊進行掃描
+        for start_row, start_col in anchor_points:
+            # 橫向找序號後的機器 (通常是 6 台)
+            current_block_cols = []
+            for c in range(start_col + 1, len(raw_df.columns)):
+                val = raw_df.iloc[start_row, c]
+                if pd.notna(val) and str(val).strip() != "":
+                    current_block_cols.append(c)
+                else:
+                    # 遇到空白代表這組 (6台) 結束
+                    break
+            
+            # 垂直抓取該區塊內的每一台機器
+            for col_idx in current_block_cols:
+                transformer_info = []
+                # 抓取序號下方約 35 行的內容
+                for r in range(start_row, start_row + 35):
+                    if r >= len(raw_df): break
+                    label = str(raw_df.iloc[r, start_col]).replace('\n', '').strip()
+                    value = str(raw_df.iloc[r, col_idx]).strip()
+                    
+                    if label == "nan" or not label: continue
+                    transformer_info.append((label, value if value != "nan" else "-"))
+                
+                all_transformers.append(transformer_info)
+        
+        st.info(f"📊 總計抓取到 {len(all_transformers)} 台變壓器數據")
 
-        if st.button("🚀 產出全數標楷體報告"):
+        if st.button("🚀 產出完整標楷體報告"):
             doc = Document()
             
-            # 遍歷偵測到的所有組數 (無論是 6 組還是 15 組)
-            for idx, col_idx in enumerate(transformer_cols):
-                # 取得該組的序號名稱 (例如 1, 2, 3...)
-                sn_name = str(raw_df.iloc[sn_row, col_idx])
+            for idx, info in enumerate(all_transformers):
+                # 取得該組的序號數字 (通常在 info 的第一項)
+                sn_val = info[0][1] if info else str(idx+1)
                 
-                # 新增區塊標題
                 p = doc.add_paragraph()
-                run_title = p.add_run(f"變壓器序號：{sn_name}")
+                run_title = p.add_run(f"變壓器資料區塊 (序號：{sn_val})")
                 set_font_kai(run_title, 14, is_bold=True)
                 
-                # 建立 2 欄表格
                 table = doc.add_table(rows=0, cols=2)
                 table.style = 'Table Grid'
                 
-                # 垂直抓取該序號下的參數（設定往下抓 30 行，確保所有規格都抓到）
-                for r in range(sn_row + 1, sn_row + 35): 
-                    if r >= len(raw_df): break
-                    
-                    label = str(raw_df.iloc[r, sn_col]).replace('\n', '').strip()
-                    value = str(raw_df.iloc[r, col_idx]).strip()
-                    
-                    # 跳過空白標籤
-                    if label == "nan" or not label: continue
-                    
+                for label, value in info:
                     row_cells = table.add_row().cells
-                    # 設定左側標題
-                    set_font_kai(row_cells[0].paragraphs[0].add_run(label), 12)
-                    # 設定右側數據
-                    set_font_kai(row_cells[1].paragraphs[0].add_run(value if value != "nan" else "-"), 12)
+                    # 左標籤
+                    set_font_kai(row_cells[0].paragraphs[0].add_run(label), 11)
+                    # 右數值
+                    set_font_kai(row_cells[1].paragraphs[0].add_run(value), 11)
                 
-                # 分隔每一組變壓器
-                doc.add_paragraph()
+                doc.add_paragraph() # 組間空格
 
             output = io.BytesIO()
             doc.save(output)
             output.seek(0)
-            st.download_button(f"📥 下載 {len(transformer_cols)} 組數據報告", output, "Full_Report.docx")
+            st.download_button(f"📥 下載全部 {len(all_transformers)} 台報告", output, "Transformer_Full_Report.docx")
     else:
-        st.error("❌ 找不到『序號』起始點，請確認 Excel。")
+        st.error("❌ 無法在 Excel 中找到任何『序號』起始標記。")
