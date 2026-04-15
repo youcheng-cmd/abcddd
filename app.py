@@ -56,34 +56,40 @@ if excel_file:
                     for r_offset in range(0, 50):
                         curr_r = r_start + r_offset
                         if curr_r >= len(raw_df): break
-                        label_raw = str(raw_df.iloc[curr_r, c_start]).replace(' ', '').replace('\n', '')
                         
-                        if r_offset > 0 and label_raw == "序號": break
-                        if any(k in label_raw for k in filter_keywords): continue
-
+                        # 標籤提取邏輯
                         label = str(raw_df.iloc[curr_r, c_start]).replace('\n', '').strip()
                         if (label == "nan" or label == "") and c_start > 0:
-                            label = str(raw_df.iloc[curr_r, curr_r-1] if 'curr_r' in locals() else c_start-1).strip() # 修正標籤抓取
                             label = str(raw_df.iloc[curr_r, c_start-1]).replace('\n', '').strip()
                         
-                        value = str(raw_df.iloc[curr_r, target_col]).strip()
-                        if label == "nan" or not label or any(k in label for k in filter_keywords): continue
+                        label_clean = label.replace(' ', '')
+                        if r_offset > 0 and label_clean == "序號": break
+                        if any(k in label_clean for k in filter_keywords): continue
                         
-                        # --- 數據抓取：年份、容量、利用率 ---
+                        value = str(raw_df.iloc[curr_r, target_col]).strip()
+                        if label == "nan" or not label: continue
+                        
+                        # --- 數據提取 ---
+                        # 1. 年份
                         if any(k in label for k in ["製造年份", "製造日期", "出廠", "年份"]):
-                            year_digits = ''.join(filter(str.isdigit, value))
-                            if year_digits:
-                                y = int(year_digits)
+                            digits = ''.join(filter(str.isdigit, value))
+                            if digits:
+                                y = int(digits)
                                 mfg_year = y + 1911 if y < 200 else y
                         
-                        if "容量" in label and "kVA" in value.upper() or "容量" in label:
+                        # 2. 容量 (kVA)
+                        if "容量" in label:
                             cap_digits = ''.join(filter(str.isdigit, value))
-                            if cap_digits: capacity = int(cap_digits)
+                            if cap_digits:
+                                capacity = int(cap_digits)
                         
+                        # 3. 利用率/負載率
                         if any(k in label for k in ["利用率", "負載率"]):
-                            usage_digits = value.replace('%', '').strip()
-                            try: usage_rate = float(usage_digits)
-                            except: pass
+                            usage_clean = value.replace('%', '').strip()
+                            try:
+                                usage_rate = float(usage_clean)
+                            except:
+                                pass
                         
                         specs.append((label, value if value != "nan" else "-"))
                     
@@ -96,7 +102,6 @@ if excel_file:
                         elif "20" in age_filter and age >= 20: should_add = True
                         
                         if should_add:
-                            # 儲存額外統計資訊
                             all_transformer_data.append({
                                 "specs": specs,
                                 "capacity": capacity,
@@ -105,50 +110,47 @@ if excel_file:
                             })
 
     if all_transformer_data:
-        # --- 進行數據匯總統計 ---
+        # --- 統計計算 ---
         total_capacity = sum(t["capacity"] for t in all_transformer_data)
         cap_counts = Counter(t["capacity"] for t in all_transformer_data)
-        valid_usages = [t["usage_rate"] for t in all_transformer_data if t["usage_rate"] is not None]
+        # 過濾出有效的利用率（大於 0 的才算）
+        valid_usages = [t["usage_rate"] for t in all_transformer_data if t["usage_rate"] is not None and t["usage_rate"] > 0]
         avg_usage = sum(valid_usages) / len(valid_usages) if valid_usages else 0
 
-        st.success(f"📊 統計摘要：總台數 {len(all_transformer_data)} | 總容量 {total_capacity} kVA | 平均利用率 {avg_usage:.2f}%")
+        st.success(f"✅ 成功抓取！總台數：{len(all_transformer_data)} 台 | 總容量：{total_capacity} kVA")
+        
+        # 網頁預覽統計
+        col1, col2, col3 = st.columns(3)
+        col1.metric("總裝置容量", f"{total_capacity} kVA")
+        col2.metric("平均負載利用率", f"{avg_usage:.1f} %")
+        col3.metric("篩選後總台數", f"{len(all_transformer_data)} 台")
 
-        if st.button("🚀 生成含統計總表之報告"):
+        if st.button("🚀 下載完整報告 (含統計表)"):
             doc = Document()
             
-            # 1. 產出設備統計總表
-            p_title = doc.add_paragraph()
-            run_title = p_title.add_run("壹、 設備統計總表")
-            set_font_kai(run_title, 16, is_bold=True)
-            
+            # --- 第一部分：統計總表 ---
+            doc.add_heading('壹、設備統計總表', 1)
             summary_table = doc.add_table(rows=0, cols=2)
             summary_table.style = 'Table Grid'
             
-            # 總裝置容量
-            row = summary_table.add_row().cells
-            set_font_kai(row[0].paragraphs[0].add_run("總裝置容量"), 12, True)
-            set_font_kai(row[1].paragraphs[0].add_run(f"{total_capacity} kVA"), 12)
+            def add_sum_row(t, l, v):
+                row = t.add_row().cells
+                set_font_kai(row[0].paragraphs[0].add_run(l), 12, True)
+                set_font_kai(row[1].paragraphs[0].add_run(v), 12)
+
+            add_sum_row(summary_table, "總裝置容量", f"{total_capacity} kVA")
             
-            # 規格統計 (多少kVA x 幾台)
-            row = summary_table.add_row().cells
-            set_font_kai(row[0].paragraphs[0].add_run("設備規格分布"), 12, True)
-            cap_detail = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True)])
-            set_font_kai(row[1].paragraphs[0].add_run(cap_detail), 11)
-            
-            # 平均利用率
-            row = summary_table.add_row().cells
-            set_font_kai(row[0].paragraphs[0].add_run("平均利用率 (改善對象)"), 12, True)
-            set_font_kai(row[1].paragraphs[0].add_run(f"{avg_usage:.2f} %"), 12)
+            # 格式化規格分布
+            cap_dist = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True) if k > 0])
+            add_sum_row(summary_table, "設備規格分布", cap_dist if cap_dist else "-")
+            add_sum_row(summary_table, "平均負載利用率", f"{avg_usage:.2f} %")
             
             doc.add_page_break()
 
-            # 2. 產出個別設備詳表
-            p_detail = doc.add_paragraph()
-            run_detail = p_detail.add_run("貳、 設備詳細數據")
-            set_font_kai(run_detail, 16, is_bold=True)
-
-            for t_item in all_transformer_data:
-                specs = t_item["specs"]
+            # --- 第二部分：詳細數據 ---
+            doc.add_heading('貳、詳細設備資料', 1)
+            for item in all_transformer_data:
+                specs = item["specs"]
                 p = doc.add_paragraph()
                 run_t = p.add_run(f"變壓器設備資料 (序號：{specs[0][1]})")
                 set_font_kai(run_t, 14, is_bold=True)
@@ -164,4 +166,4 @@ if excel_file:
             output = io.BytesIO()
             doc.save(output)
             output.seek(0)
-            st.download_button("📥 下載完整統計報告", output, f"Transformer_Summary_{base_year}.docx")
+            st.download_button("📥 下載完整報告", output, f"Transformer_Report_{base_year}.docx")
