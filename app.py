@@ -4,19 +4,20 @@ from docx import Document
 from docx.shared import Pt, RGBColor
 from docx.oxml.ns import qn
 import io
-from datetime import datetime
 
-st.set_page_config(page_title="變壓器專業報告-年份篩選版", layout="wide")
-st.title("📑 變壓器自動化報告 (含年份篩選功能)")
+st.set_page_config(page_title="變壓器專業報告-手動基準年份版", layout="wide")
+st.title("📑 變壓器自動化報告 (含基準年份自定義)")
 
-# 獲取今年年份
-current_year = datetime.now().year
+# --- 側邊欄設定區 ---
+st.sidebar.header("⚙️ 設定基準與篩選")
 
-# 側邊欄：功能選單
-st.sidebar.header("🔍 篩選與設定")
+# 功能 1：手動輸入今年年份 (預設 2026)
+base_year = st.sidebar.number_input("請輸入基準年份 (計算機齡用)：", min_value=1900, max_value=2100, value=2026)
+
+# 功能 2：機齡篩選選單
 age_filter = st.sidebar.selectbox(
     "選擇變壓器齡篩選：",
-    ["顯示全部", "超過 10 年 (汰換參考)", "超過 15 年 (優先汰換)"]
+    ["顯示全部", "超過 10 年 (汰換參考)", "超過 15 年 (優先汰換)", "超過 20 年 (屆齡汰換)"]
 )
 
 def set_font_kai(run, size=11, is_bold=False):
@@ -51,7 +52,7 @@ if excel_file:
                     if sn_val == "nan" or sn_val == "": continue
                     
                     specs = []
-                    mfg_year = None # 用來記錄製造年份
+                    mfg_year = None 
                     
                     for r_offset in range(0, 50):
                         curr_r = r_start + r_offset
@@ -68,37 +69,45 @@ if excel_file:
                         value = str(raw_df.iloc[curr_r, target_col]).strip()
                         if label == "nan" or not label or any(k in label for k in filter_keywords): continue
                         
-                        # --- 年份識別邏輯 ---
-                        if "出廠" in label or "製造日期" in label or "年份" in label:
+                        # --- 年份提取邏輯 ---
+                        if any(k in label for k in ["製造年份", "製造日期", "出廠", "年份"]):
                             try:
-                                # 嘗試抓取數字（例如從 '2010年' 或 '民國99年' 抓取數字）
-                                year_match = pd.to_numeric(''.join(filter(str.isdigit, value)))
-                                # 處理民國與西元切換
-                                if year_match < 200: # 假設是民國
-                                    mfg_year = year_match + 1911
-                                else:
-                                    mfg_year = year_match
+                                year_str = ''.join(filter(str.isdigit, value))
+                                if year_str:
+                                    year_num = int(year_str)
+                                    if year_num < 200: # 處理民國
+                                        mfg_year = year_num + 1911
+                                    else:
+                                        mfg_year = year_num
                             except:
                                 pass
                         
                         specs.append((label, value if value != "nan" else "-"))
                     
-                    # --- 執行篩選過濾 ---
+                    # --- 根據手動輸入的 base_year 進行計算 ---
                     if specs:
-                        age = current_year - mfg_year if mfg_year else 0
+                        age = base_year - mfg_year if mfg_year else 0
                         
-                        if age_filter == "超過 10 年 (汰換參考)":
-                            if age >= 10: all_transformer_data.append(specs)
-                        elif age_filter == "超過 15 年 (優先汰換)":
-                            if age >= 15: all_transformer_data.append(specs)
-                        else:
+                        should_add = False
+                        if age_filter == "顯示全部":
+                            should_add = True
+                        elif age_filter == "超過 10 年 (汰換參考)" and age >= 10:
+                            should_add = True
+                        elif age_filter == "超過 15 年 (優先汰換)" and age >= 15:
+                            should_add = True
+                        elif age_filter == "超過 20 年 (屆齡汰換)" and age >= 20:
+                            should_add = True
+                        
+                        if should_add:
+                            # 在資料中標註一下計算出的機齡，方便確認
+                            if mfg_year:
+                                specs.append(("系統計算機齡", f"{age} 年 (基準：{base_year})"))
                             all_transformer_data.append(specs)
 
-    # 顯示結果
     if all_transformer_data:
-        st.success(f"📊 在「{age_filter}」條件下，共找到 {len(all_transformer_data)} 台設備。")
+        st.success(f"✅ 基準年份：{base_year} | 符合「{age_filter}」：共 {len(all_transformer_data)} 台。")
         
-        if st.button("🚀 生成篩選後的 Word 報告"):
+        if st.button(f"🚀 下載 Word 報告"):
             doc = Document()
             for specs in all_transformer_data:
                 p = doc.add_paragraph()
@@ -116,6 +125,4 @@ if excel_file:
             output = io.BytesIO()
             doc.save(output)
             output.seek(0)
-            st.download_button("📥 下載篩選報告", output, f"Transformer_{age_filter}.docx")
-    else:
-        st.warning(f"⚠️ 在「{age_filter}」條件下，沒有找到符合的變壓器。")
+            st.download_button("📥 下載報告", output, f"Transformer_Report_{base_year}.docx")
