@@ -85,10 +85,26 @@ if excel_file:
                     if any(k in label for k in ["利用率", "負載率"]):
                         n = extract_number(val)
                         d["負載率"] = n * 100 if 0 < n < 1 else n
-                    if any(k in label for k in ["功因", "PF"]):
+                  # --- 修改後的功因抓取邏輯 ---
+                    if any(k in label for k in ["功因", "功率因數", "PF", "P.F"]):
                         n = extract_number(val)
+                        # 智慧判定：如果是 90 轉成 0.9，如果是 0.9 則保持 0.9
                         d["現況功因"] = n / 100 if n > 1 else n
+                    if d["容量"] > 0:
+                    # --- 功因防錯：如果抓到是 0，預設為 0.8 ---
+                    if d["現況功因"] <= 0:
+                        d["現況功因"] = 0.8
                     
+                    # (下方接續之前的損耗計算公式...)
+                    base_iron_loss = d["容量"] * 2.5
+                    base_copper_loss = d["容量"] * 13.0
+                    d["實際銅損"] = base_copper_loss * ((d["負載率"] / 100) ** 2)
+                    d["鐵損"] = base_iron_loss
+                    
+                    # 這裡同步修正輸出功率的計算 (kW)
+                    d["輸出功率"] = d["容量"] * d["現況功因"] * (d["負載率"] / 100)
+                    
+                    d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
                     # 抓取損耗基礎值以利計算
                    
                     specs.append((label, val))
