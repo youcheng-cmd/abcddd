@@ -81,12 +81,12 @@ if excel_file:
                         n = extract_number(val)
                         d["負載率"] = n * 100 if 0 < n < 1 else n
                     
-                    # --- 修改後的功因抓取邏輯 (精確對標圖中標籤) ---
-                    label_pure = label.replace(' ', '').replace('\n', '')
-                    if label_pure == "功因" or any(k in label_pure for k in ["功率因數", "PF", "P.F"]):
-                        n = extract_number(val)
-                        if n > 0: # 只有抓到大於 0 的數字才更新
-                            d["現況功因"] = n / 100 if n > 1 else n
+                    # --- 這裡負責「找資料」，確保寫在垂直掃描的迴圈內 ---
+                     if any(k in label_p for k in ["功因", "功率因數", "PF"]):
+                     n = extract_number(val)
+                     # 這裡只負責存數字，不要在這裡做 append!
+                     if n > 0: 
+                     d["現況功因"] = n / 100 if n > 1 else n
 
                     # --- 3. 損耗公式計算 (不再依賴 Excel 損耗數據) ---
                     base_iron_loss = d["容量"] * 2.5    # 鐵損估算 (W)
