@@ -214,7 +214,33 @@ if all_transformer_data:
         set_font_kai(p2.add_run("，以 1 年 8760 小時運轉，推估計算年耗能約為 "), size=12)
         set_font_kai(p2.add_run(f"{total_kwh_before:,.0f} kWh/年"), size=12, color=RGBColor(255, 0, 0))
         set_font_kai(p2.add_run("。"), size=12)
+# --- 插入現況數據表格 (就在 P2 下面) ---
+        summary_table = doc.add_table(rows=1, cols=11)
+        summary_table.style = 'Table Grid'
+        summary_table.alignment = 1 
 
+        headers = ["建築物", "編號", "年份", "廠牌", "容量", "型式", "負載率", "現況功因", "銅損(W)", "鐵損(W)", "改善前耗能"]
+        header_cells = summary_table.rows[0].cells
+        for i, h in enumerate(headers):
+            p = header_cells[i].paragraphs[0]
+            p.alignment = 1
+            run = p.add_run(h)
+            set_font_kai(run, size=9, is_bold=True)
+
+        for t in all_transformer_data:
+            d = t["analysis"]
+            row_cells = summary_table.add_row().cells
+            # 依據你的截圖，數值格式精確化
+            vals = [
+                str(d["建築物"]), str(d["編號"]), str(d["年份"]), str(d["廠牌"]), 
+                f"{d['容量']:,.0f}", str(d["型式"]), f"{d['負載率']:.1f}%", 
+                f"{d['現況功因']:.2f}", f"{d['實際銅損']:,.1f}", 
+                f"{d['鐵損']:,.0f}", f"{int(d['改善前耗能']):,}"
+            ]
+            for i, v in enumerate(vals):
+                p = row_cells[i].paragraphs[0]
+                p.alignment = 1
+                set_font_kai(p.add_run(v), size=8)
         # --- 二、 改善方案 ---
         h2 = doc.add_paragraph()
         set_font_kai(h2.add_run('二、改善方案'), size=14, is_bold=True)
