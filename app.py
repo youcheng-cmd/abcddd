@@ -210,7 +210,37 @@ if all_transformer_data:
         p2.add_run("。")
 
         # --- 二、 改善方案 ---
+    from docx.shared import Pt, RGBColor, Inches
+import os # 務必加上這行，用來檢查檔案是否存在
         doc.add_heading('二、 改善方案', 2)
+# --- 肆、 報告中的圖片插入區塊 ---
+        # 定義圖片與對應的圖說
+        image_configs = [
+            ("image1.png", "圖一、現況變壓器設備照片"),
+            ("image2.png", "圖二、11.4/22.8kV 一般傳統矽鋼片與非晶質變壓器損耗參考表"),
+            ("image3.png", "圖三、非晶質乾式及油浸式變壓器外觀圖")
+        ]
+
+        for img_name, img_caption in image_configs:
+            if os.path.exists(img_name):
+                # 插入圖片，設定寬度為 5.5 英吋
+                doc.add_picture(img_name, width=Inches(5.5))
+                
+                # 圖片置中
+                last_p = doc.paragraphs[-1]
+                last_p.alignment = 1 
+                
+                # 插入圖說
+                caption_p = doc.add_paragraph()
+                caption_p.alignment = 1
+                run = caption_p.add_run(img_caption)
+                set_font_kai(run, size=10, is_bold=True)
+                
+                # 增加一個空白段落，避免圖片與文字太擠
+                doc.add_paragraph()
+            else:
+                # 偵錯用：如果圖片沒抓到，會在 Word 顯示提示
+                doc.add_paragraph(f"【⚠️ 找不到圖片檔案：{img_name}，請檢查 GitHub 上傳狀態】")
         p3 = doc.add_paragraph("變壓器的損失有二種：一種發生在變壓器和配電線路接續時所產生的無負載損失（鐵損），另一種是在使用電力時才會發生的負載損失（銅損）。為了降低變壓器的無載損失（鐵損），建議將傳統的矽鋼片鐵心，改採用高性能的非晶質合金材料(Amorphous Alloy)。其鐵損是現況方向性矽鋼片的 1/3-1/5，可降低變壓器損失。")
         
         # (這裡可以插入你截圖中的對照表，或維持文字說明)
