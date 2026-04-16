@@ -197,7 +197,7 @@ if all_transformer_data:
         # --- 一、 現況說明 ---
         h1 = doc.add_paragraph('一、 現況說明', style='Heading 2')
         for run in h1.runs:
-        set_font_kai(run, size=14, is_bold=True)
+            set_font_kai(run, size=14, is_bold=True)
         p1 = doc.add_paragraph(style='List Number')
         # 固定文字為黑色 12號
         p1.style = doc.styles['Normal']
