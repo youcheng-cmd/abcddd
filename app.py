@@ -198,8 +198,6 @@ if excel_file:
 
         p2 = doc.add_paragraph()
         p2.add_run("2. 依據查核系統資料，評估 ")
-        # 先產生規格字串
-        dist_str = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_dist.items(), reverse=True)])
         p2.add_run(f"{dist_str}").font.color.rgb = RGBColor(255, 0, 0)
         p2.add_run(" 台變壓器現況年平均利用率 ")
         p2.add_run(f"{avg_usage:.1f} %").font.color.rgb = RGBColor(255, 0, 0) # 紅字
