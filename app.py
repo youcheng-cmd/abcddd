@@ -120,7 +120,7 @@ if excel_file:
                     all_transformer_data.append({"specs": specs, "analysis": d})
                     seen_sn.add(unique_key)
 
-      if all_transformer_data:
+if all_transformer_data:
         # --- 數據摘要顯示 ---
         total_cap = sum(t["analysis"]["容量"] for t in all_transformer_data)
         cap_counts = Counter(t["analysis"]["容量"] for t in all_transformer_data)
