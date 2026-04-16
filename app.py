@@ -196,10 +196,10 @@ if all_transformer_data:
 
         # --- 一、 現況說明 ---
         h1 = doc.add_paragraph()
-        set_font_kai(h1.add_run('一、現況說明'), size=14, is_bold=True)
+        set_font_kai(h1.add_run('一、\t現況說明'), size=14, is_bold=True)
         p1 = doc.add_paragraph()
         # 固定文字為黑色 12號
-        set_font_kai(p1.add_run("1. 依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 "), size=12)
+        set_font_kai(p1.add_run("1.\t依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 "), size=12)
         # 變動數據為紅色 12號
         set_font_kai(p1.add_run(f"{total_cap:,.0f} kVA"), size=12, color=RGBColor(255, 0, 0))
         set_font_kai(p1.add_run("，平常雖然注重保養維持正常運轉，但效率與新型非晶質高效率變壓器相比，其無載損耗(kW)基本差異大。現況使用 20 年以上。"), size=12)
