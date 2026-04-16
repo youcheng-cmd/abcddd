@@ -222,17 +222,17 @@ if all_transformer_data:
         # 1. 插入原理說明文字 (這段現在放在最前面)
         p_desc = doc.add_paragraph()
         run_desc = p_desc.add_run("變壓器的損失有二種：一種發生在變壓器和配電線路接續時所產生的無負載損失（鐵損），另一種是在使用電力時才會發生的負載損失（銅損）。在配電線路連續供電負載下，二種損失的比較而言，無負載損失較大，對能源的使用是一種很大的耗損。為了降低變壓器的無負載損失（鐵損），將傳統的方向性矽鋼片鐵心，改採用高性能的非晶質合金材料（Amorphous Alloy），其鐵損是現況方向性矽鋼片的 1/3-1/5，可降低變壓器損失，下表為油式非晶質合金與方向性矽鋼片的銅、鐵損失比較。")
-        set_font_kai(run_desc, size=11)
+        set_font_kai(run_desc, size=12)
 
         # 2. 插入表格標題 (image1 上方)
         p_table_title = doc.add_paragraph()
         p_table_title.alignment = 1 # 標題置中
         run_title = p_table_title.add_run("11.4/22.8kV 一般傳統鐵心矽鋼片與非晶質(AMT)變壓器銅、鐵損參考表")
-        set_font_kai(run_title, size=11, is_bold=True)
+        set_font_kai(run_title, size=12, is_bold=True)
 
-        # 3. 插入 image1 (表格圖，設定為 4.5 英吋)
+        # 3. 插入 image1 (表格圖，設定為 4 英吋)
         if os.path.exists('image1.png'):
-            doc.add_picture('image1.png', width=Inches(4.5))
+            doc.add_picture('image1.png', width=Inches(4))
             doc.paragraphs[-1].alignment = 1 # 圖片置中
             doc.add_paragraph() # 空行
 
