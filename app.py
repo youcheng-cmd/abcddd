@@ -7,6 +7,32 @@ from docx.oxml.ns import qn
 import io
 import re
 from collections import Counter
+# --- 這裡放資料庫 ---
+AMT_SPECS = {
+    100: [24.5, 0.07, 1.15],
+    150: [30.5, 0.08, 1.68],
+    200: [36.7, 0.11, 1.96],
+    300: [42.0, 0.13, 2.19],
+    400: [48.2, 0.15, 2.40],
+    500: [58.0, 0.20, 3.20],
+    600: [67.9, 0.24, 4.00],
+    750: [71.0, 0.28, 6.00],
+    1000: [84.5, 0.40, 8.30],
+    1250: [97.6, 0.45, 10.25],
+    1500: [107.7, 0.50, 12.10],
+    2000: [142.6, 0.70, 14.10],
+    2500: [166.0, 0.80, 16.57],
+    3000: [180.2, 0.90, 17.25]
+}
+
+# --- 這裡放計算邏輯函數 ---
+def get_best_amt_cap(old_cap, current_load_factor):
+    load_kva = old_cap * (current_load_factor / 100)
+    for cap in sorted(AMT_SPECS.keys()):
+        new_lf = (load_kva / cap) * 100
+        if 30 <= new_lf <= 35:
+            return cap
+    return old_cap if old_cap in AMT_SPECS else min(AMT_SPECS.keys(), key=lambda x:abs(x-old_cap))
 
 st.set_page_config(page_title="變壓器節能分析系統", layout="wide")
 st.title("📑 變壓器自動化分析報告 (數量精確版)")
@@ -16,6 +42,8 @@ st.sidebar.header("⚙️ 參數設定")
 base_year = st.sidebar.number_input("請輸入基準年份：", value=2026)
 pf_after_input = st.sidebar.number_input("設定【改善後】目標功率因數 (%)：", value=95)
 age_filter = st.sidebar.selectbox("選擇變壓器齡篩選：", ["顯示全部", "超過 10 年", "超過 15 年", "超過 20 年"])
+# 在介面加入電費調整空格
+electricity_price = st.number_input("請輸入平均電費 (元/度)", min_value=0.0, value=5.0, step=0.1)
 
 # --- 通用工具函數 ---
 def set_font_kai(run, size=12, is_bold=False, color=RGBColor(0, 0, 0)):
