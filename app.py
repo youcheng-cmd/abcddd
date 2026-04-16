@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor  # 必須加上 RGBColor
 from docx.oxml.ns import qn
 import io
 import re
@@ -107,7 +107,7 @@ if excel_file:
                     if d["現況功因"] <= 0: d["現況功因"] = 0.8
                     
                     # 計算公式
-                    d["鐵損"] = d["容量"] * 2.5
+                    d["鐵損"] = d["容量"] * 3.5
                     d["實際銅損"] = (d["容量"] * 13.0) * ((d["負載率"] / 100) ** 2)
                     d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
                     
@@ -171,7 +171,70 @@ if excel_file:
                 row = dt.add_row().cells
                 set_font_kai(row[0].paragraphs[0].add_run(l), 10); set_font_kai(row[1].paragraphs[0].add_run(v), 10)
             doc.add_page_break()
+# ==========================================================
+        # 肆、 節能改善建議報告 (制式文字與紅字帶入)
+        # ==========================================================
+        doc.add_page_break()
+        doc.add_heading('肆、 節能改善建議報告', 1)
 
+        # --- 計算報告所需動態數值 ---
+        # 1. 預估改善後耗能 (參考 AMT 表格，假設鐵損降至 1/5, 銅損降至 0.6倍)
+        # 你也可以根據之前的 IRON_LOSS_MAP 另外建立一個 AMT_LOSS_MAP 做查表
+        total_kwh_before = sum(t["analysis"]["改善前耗能"] for t in all_transformer_data)
+        total_kwh_after = total_kwh_before * 0.35  # 估計節電率 65%
+        savings_kwh = total_kwh_before - total_kwh_after
+        savings_money = savings_kwh * 3.3          # 假設電費 3.3 元/度
+        
+        # 2. 投資費用預估 (這部分建議依你的實際單價調整)
+        invest_cost = total_cap * 1600        # 假設每 kVA 成本 1600 元
+        payback_year = (invest_cost / savings_money) if savings_money > 0 else 0
+
+        # --- 一、 現況說明 ---
+        doc.add_heading('一、 現況說明', 2)
+        p1 = doc.add_paragraph()
+        p1.add_run("1. 依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 ")
+        p1.add_run(f"{total_cap:,.0f} kVA").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p1.add_run("，平常雖然注重保養維持正常運轉，但效率與新型非晶質高效率變壓器相比，其無載損耗(kW)基本差異大。現況使用 20 年以上。")
+
+        p2 = doc.add_paragraph()
+        p2.add_run("2. 依據查核系統資料，評估 ")
+        # 先產生規格字串
+        dist_str = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_dist.items(), reverse=True)])
+        p2.add_run(f"{dist_str}").font.color.rgb = RGBColor(255, 0, 0)
+        p2.add_run(" 台變壓器現況年平均利用率 ")
+        p2.add_run(f"{avg_usage:.1f} %").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p2.add_run("，其變壓器計算總損失約 ")
+        p2.add_run(f"{(total_kwh_before/8760):.2f} kW").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p2.add_run("，以 1 年 8760 小時運轉，推估計算年耗能約為 ")
+        p2.add_run(f"{total_kwh_before:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p2.add_run("。")
+
+        # --- 二、 改善方案 ---
+        doc.add_heading('二、 改善方案', 2)
+        p3 = doc.add_paragraph("變壓器的損失有二種：一種發生在變壓器和配電線路接續時所產生的無負載損失（鐵損），另一種是在使用電力時才會發生的負載損失（銅損）。為了降低變壓器的無載損失（鐵損），建議將傳統的矽鋼片鐵心，改採用高性能的非晶質合金材料(Amorphous Alloy)。其鐵損是現況方向性矽鋼片的 1/3-1/5，可降低變壓器損失。")
+        
+        # (這裡可以插入你截圖中的對照表，或維持文字說明)
+        p3_sub = doc.add_paragraph("非晶質變壓器優點：(1)鐵心結構、噪音較低 5~8dB，低損耗、低運轉溫度。(2)節能效果明顯，比一般型降低 20%~40% 以上。")
+
+        # --- 三、 預期效益 ---
+        doc.add_heading('三、 預期效益', 2)
+        p4 = doc.add_paragraph()
+        p4.add_run("1. 預期效益：建議可規劃將傳統鐵心式變壓器汰換為高效率非晶質變壓器，其節能效益推估計算約可減少 ")
+        p4.add_run(f"{savings_kwh:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p4.add_run("，節省電費 ")
+        p4.add_run(f"{(savings_money/10000):.1f} 萬元/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p4.add_run("。")
+
+        p5 = doc.add_paragraph()
+        p5.add_run("2. 投資費用：高效率變壓器汰換投資費用預估約 ")
+        p5.add_run(f"{(invest_cost/10000):.1f} 萬元").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p5.add_run(" (實際金額依廠商報價為主)。")
+
+        p6 = doc.add_paragraph()
+        p6.add_run("3. 回收年限：")
+        p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = ").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p6.add_run(f"{payback_year:.1f} 年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p6.add_run("。")
         output = io.BytesIO()
         doc.save(output)
         output.seek(0)
