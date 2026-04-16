@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor  # 必須加入 RGBColor
 from docx.oxml.ns import qn
 import io
 import re
@@ -106,10 +106,24 @@ if excel_file:
                     # 功因預設
                     if d["現況功因"] <= 0: d["現況功因"] = 0.8
                     
-                    # 計算公式
-                    d["鐵損"] = d["容量"] * 3.5
-                    d["實際銅損"] = (d["容量"] * 13.0) * ((d["負載率"] / 100) ** 2)
-                    d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
+                 # 1. 定義鐵損對照表 (Wfe) 與 銅損對照表 (Wcu)
+    # 單位轉換：表中的 5.0 kW 會變成 5000 W
+    IRON_MAP = {150: 0.9, 200: 1.15, 300: 1.57, 400: 1.99, 500: 2.36, 600: 2.75, 750: 3.34, 1000: 4.2, 1250: 5.25, 1500: 5.0, 2000: 6.3, 2500: 7.36, 3000: 8.83}
+    COPPER_MAP = {150: 2.71, 200: 3.45, 300: 4.71, 400: 5.96, 500: 7.065, 600: 8.25, 750: 10.02, 1000: 12.58, 1250: 15.75, 1500: 20.17, 2000: 25.2, 2500: 29.44, 3000: 35.31}
+    
+    # ... 在垂直掃描後的計算區塊修改如下 ...
+    if is_valid_device and d["容量"] > 0:
+        unique_key = f"{d['建築物']}_{d['編號']}"
+        if unique_key not in seen_sn:
+            # --- 查表計算鐵損與銅損 ---
+            cap = d["容量"]
+            d["鐵損"] = IRON_MAP.get(cap, cap * 3.0) * 1000  # 查不到則用容量*3
+            full_load_copper = COPPER_MAP.get(cap, cap * 13.0) * 1000
+            
+            d["實際銅損"] = full_load_copper * ((d["負載率"] / 100) ** 2)
+            d["改善前耗能"] = (d["鐵損"] + d["實際銅損"]) * 8760 / 1000
+            
+            # (其餘邏輯維持不變)
                     
                     # 篩選邏輯
                     age = base_year - d["年份"] if d["年份"] > 0 else 0
