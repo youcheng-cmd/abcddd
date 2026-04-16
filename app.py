@@ -186,19 +186,21 @@ if excel_file:
         savings_money = savings_kwh * 3.3          # 假設電費 3.3 元/度
         
         # 2. 投資費用預估 (這部分建議依你的實際單價調整)
-        invest_cost = total_capacity * 1600        # 假設每 kVA 成本 1600 元
+        invest_cost = total_cap * 1600        # 假設每 kVA 成本 1600 元
         payback_year = (invest_cost / savings_money) if savings_money > 0 else 0
 
         # --- 一、 現況說明 ---
         doc.add_heading('一、 現況說明', 2)
         p1 = doc.add_paragraph()
         p1.add_run("1. 依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 ")
-        p1.add_run(f"{total_capacity:,.0f} kVA").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        p1.add_run(f"{total_cap:,.0f} kVA").font.color.rgb = RGBColor(255, 0, 0) # 紅字
         p1.add_run("，平常雖然注重保養維持正常運轉，但效率與新型非晶質高效率變壓器相比，其無載損耗(kW)基本差異大。現況使用 20 年以上。")
 
         p2 = doc.add_paragraph()
         p2.add_run("2. 依據查核系統資料，評估 ")
-        p2.add_run(f"{dist_str}").font.color.rgb = RGBColor(255, 0, 0) # 紅字 (TR-1等台數)
+        # 先產生規格字串
+        dist_str = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_dist.items(), reverse=True)])
+        p2.add_run(f"{dist_str}").font.color.rgb = RGBColor(255, 0, 0)
         p2.add_run(" 台變壓器現況年平均利用率 ")
         p2.add_run(f"{avg_usage:.1f} %").font.color.rgb = RGBColor(255, 0, 0) # 紅字
         p2.add_run("，其變壓器計算總損失約 ")
