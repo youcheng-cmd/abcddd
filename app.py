@@ -329,6 +329,60 @@ if all_transformer_data:
         # --- 三、 預期效益 ---
         h3 = doc.add_paragraph()
         set_font_kai(h3.add_run('三、預期效益'), size=14, is_bold=True)
+    # --- 在三、預期效益標題後，先計算總合數據並插入表格 ---
+        benefit_table = doc.add_table(rows=1, cols=9)
+        benefit_table.style = 'Table Grid'
+        benefit_table.alignment = 1
+
+        headers = ["編號", "更換容量", "負載%", "銅損(W)", "鐵損(W)", "損耗kWh", "節電量", "節省(萬)", "回收年"]
+        for i, h in enumerate(headers):
+            p = benefit_table.rows[0].cells[i].paragraphs[0]
+            p.alignment = 1
+            set_font_kai(p.add_run(h), size=9, is_bold=True)
+
+        # 初始化你原本文字要用的變數
+        savings_kwh = 0
+        savings_money = 0 # 這裡存「元」，後面文字再除以 10000
+        invest_cost = 0   # 這裡存「元」，後面文字再除以 10000
+
+        for t in all_transformer_data:
+            old = t["analysis"]
+            # 自動挑選 30-35% 的容量
+            new_cap = get_best_amt_cap(old['容量'], old['負載率'])
+            spec = AMT_SPECS[new_cap]
+            
+            # 重新計算改善後數值
+            new_lf = (old['容量'] * (old['負載率']/100) / new_cap) * 100
+            new_wcu = spec[2] * ((new_lf/100)**2) * 1000 
+            new_wfe = spec[1] * 1000 
+            new_kwh = (new_wcu + new_wfe) / 1000 * 8760
+            
+            s_kwh = old['改善前耗能'] - new_kwh
+            s_money = s_kwh * electricity_price
+            inv = spec[0] * 10000 # 萬換算成元
+            pb = spec[0] / (s_money/10000) if s_money > 0 else 0
+            
+            # 填入表格
+            row = benefit_table.add_row().cells
+            row_vals = [
+                old['編號'], f"{new_cap:,.0f}", f"{new_lf:.1f}%", f"{new_wcu:,.1f}", 
+                f"{new_wfe:,.1f}", f"{new_kwh:,.0f}", f"{s_kwh:,.0f}", 
+                f"{(s_money/10000):.2f}", f"{pb:.1f}"
+            ]
+            for i, v in enumerate(row_vals):
+                p = row[i].paragraphs[0]
+                p.alignment = 1
+                set_font_kai(p.add_run(str(v)), size=8)
+
+            # 累加總數給下面的文字 p4, p5, p6 使用
+            savings_kwh += s_kwh
+            savings_money += s_money
+            invest_cost += inv
+
+        # 計算總回收年限 (供 p6 使用)
+        payback_year = (invest_cost / savings_money) if savings_money > 0 else 0
+        
+        doc.add_paragraph() # 表格完空一行再接 p4
         p4 = doc.add_paragraph()
         set_font_kai(p4.add_run("1. 預期效益：建議可規劃將傳統鐵心式變壓器汰換為高效率非晶質變壓器，其節能效益推估計算約可減少 "), size=12)
         set_font_kai(p4.add_run(f"{savings_kwh:,.0f} kWh/年"), size=12, color=RGBColor(255, 0, 0)) # 紅字
