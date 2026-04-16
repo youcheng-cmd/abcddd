@@ -180,7 +180,7 @@ if all_transformer_data:
         # ==========================================================
         doc.add_page_break()
         title_p = doc.add_heading('', 1)
-        set_font_kai(title_p.add_run('肆、 節能改善建議報告'), size=14, is_bold=True)
+        set_font_kai(title_p.add_run('節能改善建議報告'), size=14, is_bold=True)
 
         # --- 計算報告所需動態數值 ---
         # 1. 預估改善後耗能 (參考 AMT 表格，假設鐵損降至 1/5, 銅損降至 0.6倍)
@@ -195,7 +195,8 @@ if all_transformer_data:
         payback_year = (invest_cost / savings_money) if savings_money > 0 else 0
 
         # --- 一、 現況說明 ---
-        doc.add_heading('一、 現況說明', 2)
+        h1 = doc.add_paragraph()
+        set_font_kai(h1.add_run('一、現況說明'), size=14, is_bold=True)
         p1 = doc.add_paragraph()
         p1.add_run("1. 依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 ")
         p1.add_run(f"{total_cap:,.0f} kVA").font.color.rgb = RGBColor(255, 0, 0) # 紅字
