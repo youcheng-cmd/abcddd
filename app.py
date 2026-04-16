@@ -198,23 +198,26 @@ if all_transformer_data:
         h1 = doc.add_paragraph()
         set_font_kai(h1.add_run('一、現況說明'), size=14, is_bold=True)
         p1 = doc.add_paragraph()
-        p1.add_run("1. 依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 ")
-        p1.add_run(f"{total_cap:,.0f} kVA").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p1.add_run("，平常雖然注重保養維持正常運轉，但效率與新型非晶質高效率變壓器相比，其無載損耗(kW)基本差異大。現況使用 20 年以上。")
-
+        # 固定文字為黑色 12號
+        set_font_kai(p1.add_run("1.依據非生產性質能源查核申報資料，貴單位高壓變壓器總裝置容量達 "), size=12)
+        # 變動數據為紅色 12號
+        set_font_kai(p1.add_run(f"{total_cap:,.0f} kVA"), size=12, color=RGBColor(255, 0, 0))
+        set_font_kai(p1.add_run("，平常雖然注重保養維持正常運轉，但效率與新型非晶質高效率變壓器相比，其無載損耗(kW)基本差異大。現況使用 20 年以上。"), size=12)
         p2 = doc.add_paragraph()
-        p2.add_run("2. 依據查核系統資料，評估 ")
-        p2.add_run(f"{dist_str}").font.color.rgb = RGBColor(255, 0, 0)
-        p2.add_run(" 台變壓器現況年平均利用率 ")
-        p2.add_run(f"{avg_usage:.1f} %").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p2.add_run("，其變壓器計算總損失約 ")
-        p2.add_run(f"{(total_kwh_before/8760):.2f} kW").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p2.add_run("，以 1 年 8760 小時運轉，推估計算年耗能約為 ")
-        p2.add_run(f"{total_kwh_before:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p2.add_run("。")
+        set_font_kai(p2.add_run("2.依據查核系統資料，評估 "), size=12)
+        # 修改後的 dist_str 已不帶 .0
+        set_font_kai(p2.add_run(dist_str), size=12, color=RGBColor(255, 0, 0))
+        set_font_kai(p2.add_run(" 台變壓器現況年平均利用率 "), size=12)
+        set_font_kai(p2.add_run(f"{avg_usage:.1f}%"), size=12, color=RGBColor(255, 0, 0))
+        set_font_kai(p2.add_run("，其變壓器計算總損失約 "), size=12)
+        set_font_kai(p2.add_run(f"{(total_kwh_before/8760):.2f} kW"), size=12, color=RGBColor(255, 0, 0))
+        set_font_kai(p2.add_run("，以 1 年 8760 小時運轉，推估計算年耗能約為 "), size=12)
+        set_font_kai(p2.add_run(f"{total_kwh_before:,.0f} kWh/年"), size=12, color=RGBColor(255, 0, 0))
+        set_font_kai(p2.add_run("。"), size=12)
 
     # --- 二、 改善方案 ---
-        doc.add_heading('二、 改善方案', 2)
+        h2 = doc.add_paragraph()
+        set_font_kai(h2.add_run('二、改善方案'), size=14, is_bold=True)
 
         # 1. 插入原理說明文字 (這段現在放在最前面)
         p_desc = doc.add_paragraph()
