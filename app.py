@@ -277,9 +277,9 @@ if all_transformer_data:
         set_font_kai(h3.add_run('三、預期效益'), size=14, is_bold=True)
         p4 = doc.add_paragraph()
         set_font_kai(p4.add_run("1. 預期效益：建議可規劃將傳統鐵心式變壓器汰換為高效率非晶質變壓器，其節能效益推估計算約可減少 "), size=12)
-        set_font_kai(p4.add_run(f"{savings_kwh:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        set_font_kai(p4.add_run(f"{savings_kwh:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p4.add_run("，節省電費 "), size=12)
-        p4.add_run(f"{(savings_money/10000):.1f} 萬元/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        set_font_kai(p4.add_run(f"{(savings_money/10000):.1f} 萬元/年").font.color.rgb = RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p4.add_run("。"), size=12)
 
         p5 = doc.add_paragraph()
