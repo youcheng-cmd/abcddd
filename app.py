@@ -210,34 +210,56 @@ if all_transformer_data:
         p2.add_run(f"{total_kwh_before:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
         p2.add_run("。")
 
-       # --- 二、 改善方案 ---
+     # --- 二、 改善方案 ---
         doc.add_heading('二、 改善方案', 2)
+
+        # 1. 插入文字標題 (表格上方)
+        p_table_title = doc.add_paragraph()
+        p_table_title.add_run("11.4/22.8kV 一般傳統鐵心矽鋼片與非晶質(AMT)變壓器銅、鐵損參考表").bold = True
+
+        # 2. 插入 image2 (表格圖)
+        img2_path = 'image2.png'
+        if os.path.exists(img2_path):
+            doc.add_picture(img2_path, width=Inches(4.5)) # 稍微縮小，避免佔滿頁面
+            doc.paragraphs[-1].alignment = 1 
+            doc.add_paragraph() # 空行
+
+        # 3. 插入三點特點文字
+        features = [
+            "(1) 鐵心結構，噪音較低 5~6dB，低損耗、低運轉溫度，有效延長使用設備壽命。",
+            "(2) 低損耗，耗能較矽鋼片變壓器降低 20%~40% 以上。",
+            "(3) 變壓器為非晶合金製作低耗能，減少 SO2、CO2 及 NOX 的排放量，可緩和溫室效應及環境保護。"
+        ]
+        for f in features:
+            pf = doc.add_paragraph(f)
+            set_font_kai(pf.runs[0], size=10)
+
+        # 4. 插入並排圖片 (image1 與 image3)
+        # 建立 1 列 2 欄的表格來達成並排效果
+        table = doc.add_table(rows=1, cols=2)
+        table.alignment = 1 # 表格置中
         
-        # 1. 先放「圖一：對照表」（這張可以大一點，因為字要清楚）
-        img2 = "image2.png"
-        if os.path.exists(img2):
-            doc.add_picture(img2, width=Inches(5.0)) # 維持較大尺寸方便看數字
-            doc.paragraphs[-1].alignment = 1
-            caption2 = doc.add_paragraph()
-            caption2.alignment = 1
-            set_font_kai(caption2.add_run("圖一、11.4/22.8kV 一般傳統矽鋼片與非晶質(AMT)變壓器損耗參考表"), size=10)
+        # 左邊放 image1
+        if os.path.exists('image1.png'):
+            cell_left = table.rows[0].cells[0]
+            run_l = cell_left.paragraphs[0].add_run()
+            run_l.add_picture('image1.png', width=Inches(2.3)) # 縮小寬度以利並排
+            cell_left.paragraphs[0].alignment = 1
+            
+        # 右邊放 image3
+        if os.path.exists('image3.png'):
+            cell_right = table.rows[0].cells[1]
+            run_r = cell_right.paragraphs[0].add_run()
+            run_r.add_picture('image3.png', width=Inches(2.3)) # 縮小寬度以利並排
+            cell_right.paragraphs[0].alignment = 1
 
-        # 2. 插入改善方案的文字說明
-        p3 = doc.add_paragraph("變壓器的損失有二種：一種發生在變壓器和配電線路接續時所產生的無負載損失（鐵損），另一種是在使用電力時才會發生的負載損失（銅損）。為了降低變壓器的無載損失（鐵損），建議將傳統的矽鋼片鐵心，改採用高性能的非晶質合金材料(Amorphous Alloy)，其鐵損是現況方向性矽鋼片的 1/3-1/5，可降低變壓器損失。")
-        
-        # 3. 插入「圖二與圖三：設備實體圖」（這兩張並排或縮小，避免佔空間）
-        # 我們將 image1 與 image3 尺寸縮小，讓它們在一頁內
-        for img_name, img_caption in [("image1.png", "圖二、現況設備照片"), ("image3.png", "圖三、非晶質高效率變壓器示意圖")]:
-            if os.path.exists(img_name):
-                doc.add_picture(img_name, width=Inches(3.5)) # 縮小到 3.5 英吋
-                doc.paragraphs[-1].alignment = 1
-                cap = doc.add_paragraph()
-                cap.alignment = 1
-                set_font_kai(cap.add_run(img_caption), size=10)
-                doc.add_paragraph() # 加個小空行
+        # 5. 並排圖片下方的統一圖說
+        p_img_caption = doc.add_paragraph()
+        p_img_caption.alignment = 1
+        set_font_kai(p_img_caption.add_run("圖一、非晶質乾式及油浸式變壓器"), size=10, is_bold=True)
 
-        p3_sub = doc.add_paragraph("非晶質變壓器優點：(1)鐵心結構、噪音較低 5~8dB，低損耗、低運轉溫度。(2)節能效果明顯，比一般型降低 20%~40% 以上。")
-
+        # 6. 插入原本的原理文字說明 (接在後面)
+        p_desc = doc.add_paragraph("變壓器的損失有二種：一種發生在變壓器和配電線路接續時所產生的無負載損失（鐵損），另一種是在使用電力時才會發生的負載損失（銅損）。為了降低變壓器的無載損失（鐵損），建議將傳統的矽鋼片鐵心，改採用高性能的非晶質合金材料(Amorphous Alloy)。其鐵損是現況方向性矽鋼片的 1/3-1/5，可降低變壓器損失。")
         # --- 三、 預期效益 ---
         doc.add_heading('三、 預期效益', 2)
         p4 = doc.add_paragraph()
