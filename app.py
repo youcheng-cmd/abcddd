@@ -286,7 +286,7 @@ if all_transformer_data:
         p5 = doc.add_paragraph()
         set_font_kai(p5.add_run("2. 投資費用：高效率變壓器汰換投資費用預估約 "), size=12)
         set_font_kai(p5.add_run(f"{(invest_cost/10000):.1f} 萬元"), size=12, color=RGBColor(255, 0, 0)) # 紅字
-        set_font_kai(p5.add_run(" (實際金額依廠商報價為主)。"), size=12)
+        set_font_kai(p5.add_run(" (實際金額依廠商報價為主)。"), size=10, is_bold=True)
 
         p6 = doc.add_paragraph()
         set_font_kai(p6.add_run("3. 回收年限："), size=12)
