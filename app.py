@@ -276,22 +276,22 @@ if all_transformer_data:
         h3 = doc.add_paragraph()
         set_font_kai(h3.add_run('三、預期效益'), size=14, is_bold=True)
         p4 = doc.add_paragraph()
-        p4.add_run("1. 預期效益：建議可規劃將傳統鐵心式變壓器汰換為高效率非晶質變壓器，其節能效益推估計算約可減少 ")
+        set_font_kai(p4.add_run("1. 預期效益：建議可規劃將傳統鐵心式變壓器汰換為高效率非晶質變壓器，其節能效益推估計算約可減少 "), size=12)
         p4.add_run(f"{savings_kwh:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p4.add_run("，節省電費 ")
+        set_font_kai(p4.add_run("，節省電費 "), size=12)
         p4.add_run(f"{(savings_money/10000):.1f} 萬元/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p4.add_run("。")
+        set_font_kai(p4.add_run("。"), size=12)
 
         p5 = doc.add_paragraph()
-        p5.add_run("2. 投資費用：高效率變壓器汰換投資費用預估約 ")
+        set_font_kai(p5.add_run("2. 投資費用：高效率變壓器汰換投資費用預估約 "), size=12)
         p5.add_run(f"{(invest_cost/10000):.1f} 萬元").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p5.add_run(" (實際金額依廠商報價為主)。")
+        set_font_kai(p5.add_run(" (實際金額依廠商報價為主)。"), size=12)
 
         p6 = doc.add_paragraph()
-        p6.add_run("3. 回收年限：")
+        set_font_kai(p6.add_run("3. 回收年限："), size=12)
         p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = ").font.color.rgb = RGBColor(255, 0, 0) # 紅字
         p6.add_run(f"{payback_year:.1f} 年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
-        p6.add_run("。")
+        set_font_kai(p6.add_run("。"), size=12)
         output = io.BytesIO()
         doc.save(output)
         output.seek(0)
