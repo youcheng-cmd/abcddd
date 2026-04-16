@@ -402,13 +402,13 @@ if all_transformer_data:
         p5 = doc.add_paragraph()
         set_font_kai(p5.add_run("2. 投資費用：高效率變壓器汰換投資費用預估約 "), size=12)
         set_font_kai(p5.add_run(f"{(invest_cost/10000):.1f} 萬元"), size=12, color=RGBColor(255, 0, 0)) # 紅字
-        set_font_kai(p5.add_run(" (實際金額依廠商報價為主)。"), size=12)
+        set_font_kai(p5.add_run(" (實際金額依廠商報價為主)。"), size=12, is_bold=True)
 
         p6 = doc.add_paragraph()
         set_font_kai(p6.add_run("3. 回收年限："), size=12)
         set_font_kai(p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = "), size=12, color=RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p6.add_run(f"{payback_year:.1f} 年"), size=12, color=RGBColor(255, 0, 0)) # 紅字
-        set_font_kai(p6.add_run("。"), size=12)
+        set_font_kai(p6.add_run("(註：回收年限會依報價廠家不同而有所增減)。"), size=12, is_bold=True)
         output = io.BytesIO()
         doc.save(output)
         output.seek(0)
