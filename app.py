@@ -195,7 +195,7 @@ if all_transformer_data:
         payback_year = (invest_cost / savings_money) if savings_money > 0 else 0
 
         # --- 一、 現況說明 ---
-       h1 = doc.add_heading('', level=2)
+        h1 = doc.add_heading('', level=2)
         set_font_kai(h1.add_run('一、現況說明'), size=14, is_bold=True)
         p1 = doc.add_paragraph()
         # 固定文字為黑色 12號
