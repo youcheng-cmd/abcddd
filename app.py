@@ -218,9 +218,9 @@ if all_transformer_data:
         p_table_title.add_run("11.4/22.8kV 一般傳統鐵心矽鋼片與非晶質(AMT)變壓器銅、鐵損參考表").bold = True
 
         # 2. 插入 image2 (表格圖)
-        img2_path = 'image2.png'
-        if os.path.exists(img2_path):
-            doc.add_picture(img2_path, width=Inches(4.5)) # 稍微縮小，避免佔滿頁面
+        img1_path = 'image1.png'
+        if os.path.exists(img1_path):
+            doc.add_picture(img1_path, width=Inches(4.5)) # 稍微縮小，避免佔滿頁面
             doc.paragraphs[-1].alignment = 1 
             doc.add_paragraph() # 空行
 
@@ -234,16 +234,16 @@ if all_transformer_data:
             pf = doc.add_paragraph(f)
             set_font_kai(pf.runs[0], size=10)
 
-        # 4. 插入並排圖片 (image1 與 image3)
+        # 4. 插入並排圖片 (image2 與 image3)
         # 建立 1 列 2 欄的表格來達成並排效果
         table = doc.add_table(rows=1, cols=2)
         table.alignment = 1 # 表格置中
         
         # 左邊放 image1
-        if os.path.exists('image1.png'):
+        if os.path.exists('image2.png'):
             cell_left = table.rows[0].cells[0]
             run_l = cell_left.paragraphs[0].add_run()
-            run_l.add_picture('image1.png', width=Inches(2.3)) # 縮小寬度以利並排
+            run_l.add_picture('image2.png', width=Inches(2.3)) # 縮小寬度以利並排
             cell_left.paragraphs[0].alignment = 1
             
         # 右邊放 image3
