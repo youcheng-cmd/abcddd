@@ -120,11 +120,13 @@ if excel_file:
                     all_transformer_data.append({"specs": specs, "analysis": d})
                     seen_sn.add(unique_key)
 
-    if all_transformer_data:
+     if all_transformer_data:
         # --- 數據摘要顯示 ---
         total_cap = sum(t["analysis"]["容量"] for t in all_transformer_data)
         cap_counts = Counter(t["analysis"]["容量"] for t in all_transformer_data)
         dist_str = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True)])
+        # --- 關鍵修正：務必在顯示 st.metric 之前加入這一行 ---
+        avg_usage = sum(t["analysis"]["負載率"] for t in all_transformer_data) / len(all_transformer_data)
 
         st.success(f"✅ 解析完成！符合篩選條件：共 {len(all_transformer_data)} 台")
         c1, c2 = st.columns(2)
