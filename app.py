@@ -215,7 +215,7 @@ if all_transformer_data:
         set_font_kai(p2.add_run(f"{total_kwh_before:,.0f} kWh/年"), size=12, color=RGBColor(255, 0, 0))
         set_font_kai(p2.add_run("。"), size=12)
 
-    # --- 二、 改善方案 ---
+        # --- 二、 改善方案 ---
         h2 = doc.add_paragraph()
         set_font_kai(h2.add_run('二、改善方案'), size=14, is_bold=True)
 
@@ -245,7 +245,7 @@ if all_transformer_data:
         for f in features:
             pf = doc.add_paragraph()
             run_f = pf.add_run(f)
-            set_font_kai(run_f, size=10)
+            set_font_kai(run_f, size=12)
 
         doc.add_paragraph() # 預留一點間距
 
@@ -271,9 +271,10 @@ if all_transformer_data:
         p_img_caption = doc.add_paragraph()
         p_img_caption.alignment = 1
         run_cap = p_img_caption.add_run("圖一、非晶質乾式及油浸式變壓器")
-        set_font_kai(run_cap, size=10, is_bold=True)
+        set_font_kai(run_cap, size=12, is_bold=True)
         # --- 三、 預期效益 ---
-        doc.add_heading('三、 預期效益', 2)
+        h3 = doc.add_paragraph()
+        set_font_kai(h3.add_run('三、預期效益'), size=14, is_bold=True)
         p4 = doc.add_paragraph()
         p4.add_run("1. 預期效益：建議可規劃將傳統鐵心式變壓器汰換為高效率非晶質變壓器，其節能效益推估計算約可減少 ")
         p4.add_run(f"{savings_kwh:,.0f} kWh/年").font.color.rgb = RGBColor(255, 0, 0) # 紅字
