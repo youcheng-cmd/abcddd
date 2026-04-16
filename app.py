@@ -289,7 +289,7 @@ if all_transformer_data:
 
         p6 = doc.add_paragraph()
         set_font_kai(p6.add_run("3. 回收年限："), size=12)
-        set_font_kai(p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = ").font.color.rgb = RGBColor(255, 0, 0) # 紅字
+        set_font_kai(p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = "), size=12, color=RGBColor(255, 0, 0) # 紅字
         set_font_kai(p6.add_run(f"{payback_year:.1f} 年"), size=12, color=RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p6.add_run("。"), size=12)
         output = io.BytesIO()
