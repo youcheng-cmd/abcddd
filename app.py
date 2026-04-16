@@ -125,7 +125,7 @@ if all_transformer_data:
         # --- 數據摘要顯示 ---
         total_cap = sum(t["analysis"]["容量"] for t in all_transformer_data)
         cap_counts = Counter(t["analysis"]["容量"] for t in all_transformer_data)
-        dist_str = "、".join([f"{k}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True)])
+        dist_str = "、".join([f"{k:,.0f}kVA x {v}台" for k, v in sorted(cap_counts.items(), reverse=True)])
         # --- 關鍵修正：務必在顯示 st.metric 之前加入這一行 ---
         avg_usage = sum(t["analysis"]["負載率"] for t in all_transformer_data) / len(all_transformer_data)
 
