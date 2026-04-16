@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
+import os  # 移到這裡
 from docx import Document
-from docx.shared import Pt, RGBColor  # 必須加上 RGBColor
+from docx.shared import Pt, RGBColor, Inches  # 移到這裡
 from docx.oxml.ns import qn
 import io
 import re
@@ -210,10 +211,9 @@ if all_transformer_data:
         p2.add_run("。")
 
         # --- 二、 改善方案 ---
-    from docx.shared import Pt, RGBColor, Inches
-import os # 務必加上這行，用來檢查檔案是否存在
+    
         doc.add_heading('二、 改善方案', 2)
-# --- 肆、 報告中的圖片插入區塊 ---
+        # --- 肆、 報告中的圖片插入區塊 ---
         # 定義圖片與對應的圖說
         image_configs = [
             ("image1.png", "圖一、現況變壓器設備照片"),
