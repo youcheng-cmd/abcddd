@@ -214,56 +214,62 @@ if all_transformer_data:
         set_font_kai(p2.add_run("，以 1 年 8760 小時運轉，推估計算年耗能約為 "), size=12)
         set_font_kai(p2.add_run(f"{total_kwh_before:,.0f} kWh/年"), size=12, color=RGBColor(255, 0, 0))
         set_font_kai(p2.add_run("。"), size=12)
-# --- 在一、現況說明的最後面插入現況統計表 ---
-        doc.add_paragraph() # 加個空行
+# --- [修正版] 在一、現況說明的最後面直接插入計算好的表格 ---
+        doc.add_paragraph() # 增加間隔
         table_title = doc.add_paragraph()
-        table_title.alignment = 1
+        table_title.alignment = 1 # 置中
         set_font_kai(table_title.add_run("表一、貴單位變壓器現況運轉數據分析表"), size=11, is_bold=True)
 
-        # 建立表格 (列數為資料筆數+1標題列，欄數為 11)
+        # 1. 建立 11 欄的表格 (標題列 1 + 資料列 N)
         summary_table = doc.add_table(rows=1, cols=11)
         summary_table.style = 'Table Grid'
-        summary_table.alignment = 1 # 表格置中
+        summary_table.alignment = 1 
 
-        # 設定標題列內容與樣式
+        # 2. 設定表頭
         headers = ["建築物", "編號", "年份", "廠牌", "容量", "型式", "負載率", "現況功因", "銅損(W)", "鐵損(W)", "改善前耗能"]
         header_cells = summary_table.rows[0].cells
+        
+        from docx.oxml.ns import qn
+        from docx.oxml import parse_xml
+
         for i, h in enumerate(headers):
-            p = header_cells[i].paragraphs[0]
-            p.alignment = 1 # 置中
+            cell = header_cells[i]
+            p = cell.paragraphs[0]
+            p.alignment = 1
             run = p.add_run(h)
             set_font_kai(run, size=9, is_bold=True)
-            # 💡 專業設定：設定標題列底色 (灰色)
-            from docx.oxml.ns import qn
-            from docx.oxml import parse_xml
-            shading_elm = parse_xml(r'<w:shd {} w:fill="D9D9D9"/>'.format(qn('w:namespaces')))
-            header_cells[i]._element.get_or_add_tcPr().append(shading_elm)
+            # 設定表頭底色
+            tcPr = cell._element.get_or_add_tcPr()
+            shd = parse_xml(f'<w:shd {qn("w:namespaces")} w:fill="D9D9D9" w:val="clear"/>')
+            tcPr.append(shd)
 
-        # 填入變壓器數據
+        # 3. [核心對接] 直接從 all_transformer_data 讀取計算好的結果
         for t in all_transformer_data:
-            d = t["analysis"]
+            d = t["analysis"] # 這裡就是你前面算好的字典
             row_cells = summary_table.add_row().cells
-            # 格式化數值：去除不必要的點零，千分位，百分比
-            vals = [
-                d["建築物"], 
-                d["編號"], 
+            
+            # 將數值格式化為字串 (去除 .0, 加入千分位)
+            row_vals = [
+                str(d["建築物"]), 
+                str(d["編號"]), 
                 str(d["年份"]), 
-                d["廠牌"], 
+                str(d["廠牌"]), 
                 f"{d['容量']:,.0f}", 
-                d["型式"], 
+                str(d["型式"]), 
                 f"{d['負載率']:.1f}%", 
                 f"{d['現況功因']:.2f}", 
                 f"{d['實際銅損']:,.1f}", 
                 f"{d['鐵損']:,.0f}", 
                 f"{int(d['改善前耗能']):,}"
             ]
-            for i, v in enumerate(vals):
+            
+            for i, v in enumerate(row_vals):
                 p = row_cells[i].paragraphs[0]
                 p.alignment = 1 # 置中
-                run = p.add_run(str(v))
-                set_font_kai(run, size=8) # 數據多，字體設 8 級較整齊
+                run = p.add_run(v)
+                set_font_kai(run, size=8) # 設定 8 號字，避免表格撐破
 
-        doc.add_paragraph() # 表格結束後加個空行，再接「二、改善方案」
+        doc.add_paragraph() # 表格後空一行
         # --- 二、 改善方案 ---
         h2 = doc.add_paragraph()
         set_font_kai(h2.add_run('二、改善方案'), size=14, is_bold=True)
