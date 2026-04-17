@@ -24,64 +24,63 @@ def fetch_exact_data():
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # --- 1. 定位表五之二 (抓用戶名稱) ---
+            # 1. 抓名稱 (包含 "五之二" 的表)
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
-                # 確保 E6 (5, 4) 存在
+                # 直接針對家福的 E6 (5, 4) 抓取
                 if len(df_p) > 5 and len(df_p.columns) > 4:
                     raw_comp = str(df_p.iloc[5, 4]).strip()
-                    info["comp"] = raw_comp.replace("\n", "").split('(')[0] if raw_comp != "nan" else "未抓到名稱"
-            
-            # --- 2. 定位表三 (抓取數值數據) ---
-            # 改用模糊搜尋，找包含 "三" 或 "基本資料" 的表
+                    info["comp"] = raw_comp.split('(')[0] if raw_comp != "nan" else "未抓到名稱"
+
+            # 2. 抓數值 (包含 "三" 或 "基本資料" 的表)
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
-            
             if sheet_b:
                 df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
-                num_rows = len(df_b)
-                num_cols = len(df_b.columns)
-
-                for r in range(num_rows):
-                    # 讀取該列所有文字進行比對
-                    row_str = "".join(map(str, df_b.iloc[r, :]))
-                    
-                    # 抓員工人數 (J15 或 L15)
-                    if "員工人數" in row_str:
-                        # 安全檢查：如果有 L 欄 (11) 就抓 L，否則抓 J (9)
-                        idx = 11 if num_cols > 11 else (9 if num_cols > 9 else -1)
-                        if idx != -1:
-                            info["emp"] = str(df_b.iloc[r, idx]).replace(".0", "").strip()
-
-                    # 抓工作時數 (D16)
-                    if "工作時數" in row_str:
-                        if num_cols > 3:
-                            info["hours"] = str(df_b.iloc[r, 3]).replace(".0", "").strip()
-
-                    # 抓總面積 (L16 或 J16)
-                    if "總樓地板面積" in row_str:
-                        idx = 11 if num_cols > 11 else (9 if num_cols > 9 else -1)
-                        if idx != -1:
-                            info["area"] = str(df_b.iloc[r, idx]).strip()
-
-                    # 抓空調面積 (D17)
-                    if "空調使用面積" in row_str:
-                        if num_cols > 3:
-                            info["air_area"] = str(df_b.iloc[r, 3]).strip()
                 
-                # 抓診斷日期 (通常在第 3 列附近)
-                if num_rows > 2 and num_cols > 8:
-                    info["date"] = str(df_b.iloc[2, 8]).replace("填表日期：", "").strip()
-            
-            else:
-                st.error("Excel 中找不到包含 '三' 或 '基本資料' 的工作表")
+                for r in range(len(df_b)):
+                    # 把這一整列轉成字串，方便搜尋關鍵字
+                    row_list = [str(val).strip() for val in df_b.iloc[r, :]]
+                    row_str = "".join(row_list)
+                    
+                    # --- 搜尋邏輯：看到關鍵字，就抓那一列中「看起來像數字」的格子 ---
+                    def find_number_in_row(row_items):
+                        for item in row_items:
+                            # 移除逗號跟空格，檢查是不是純數字
+                            clean_item = item.replace(",", "").replace(" ", "").replace(".0", "")
+                            if clean_item.isdigit() and len(clean_item) > 0:
+                                return item
+                        return None
+
+                    if "員工人數" in row_str:
+                        res = find_number_in_row(row_list)
+                        if res: info["emp"] = res.replace(".0", "")
+
+                    if "全年工作時數" in row_str:
+                        res = find_number_in_row(row_list)
+                        if res: info["hours"] = res.replace(".0", "")
+
+                    if "總樓地板面積" in row_str:
+                        res = find_number_in_row(row_list)
+                        if res: info["area"] = res
+
+                    if "空調使用面積" in row_str:
+                        res = find_number_in_row(row_list)
+                        if res: info["air_area"] = res
+                    
+                    if "填表日期" in row_str or (r == 2 and "年" in row_str):
+                        # 日期通常在該列最後面，或者是包含 "年" 的格子
+                        for item in reversed(row_list):
+                            if "年" in item:
+                                info["date"] = item.replace("填表日期：", "")
+                                break
 
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
             
-    # 最後清理資料，如果是 nan 就歸 0
+    # 清理：確保不會出現 nan 字樣
     for k in info:
-        if info[k] == "nan" or not info[k]: 
+        if "nan" in str(info[k]).lower() or not str(info[k]).strip():
             info[k] = "0" if k != "comp" else "未抓到名稱"
             
     return info
