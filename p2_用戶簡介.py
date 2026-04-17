@@ -137,7 +137,9 @@ set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
 set_font_kai(p.add_run("小時，"))
 
 # 只放入純日期數字 (v_date 已經在輸入時被清理或手動填寫)
-set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
+# 找到這行，確保它是這樣寫：
+final_date_str = v_date.split("：")[-1].strip()
+set_font_kai(p.add_run(final_date_str), color=RGBColor(255, 0, 0)) # 紅
 
 set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
 
