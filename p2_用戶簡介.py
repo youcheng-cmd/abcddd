@@ -28,7 +28,7 @@ def fetch_exact_data():
 
             # --- 1. 用戶名稱 (直接鎖定 表五之二 的 B1 格) ---
             # Excel B1 在 pandas iloc 是 [0, 1]
-            raw_comp = str(df_p.iloc[0, 1]).strip()
+            raw_comp = str(df_p.iloc[0, 6]).strip()
             
             # 這裡做一點簡單清理：去掉 "nan" 或可能存在的換行
             if raw_comp != "nan" and raw_comp != "":
