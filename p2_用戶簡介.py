@@ -28,11 +28,22 @@ def fetch_exact_data():
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-           # --- 1. 處理「表五之二」(電號、契約、度數、金額、單價、功因、需量) ---
+           # --- 處理「表五之二」 ---
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
                 
+                # 1. 修正名稱抓取：直接抓 E6 (索引 5, 4)
+                try:
+                    name_val = str(df_p.iloc[5, 4]).strip()
+                    if name_val != "nan" and name_val != "":
+                        # 移除括號後的內容（例如公司編號）
+                        info["comp"] = name_val.split('(')[0].split('（')[0]
+                except:
+                    pass
+
+                # 2. 抓電號 C6 (索引 5, 2)
+                # ... 後面的電號、需量、合計邏輯維持不變 ...
                 # 台電電號 C6 (索引 5, 2)
                 info["elec_id"] = str(df_p.iloc[5, 2]).strip()
                 
