@@ -42,3 +42,25 @@ if target_file:
         st.error(f"撈取資料時發生錯誤：{e}")
 else:
     st.warning("請在左側或此處上傳 Excel 檔案以開始。")
+if st.button("📝 產出基本資料 Word"):
+    doc = Document()
+    # ... (中間填入 Word 的內容代碼保持不變) ...
+
+    # 1. 儲存到記憶體
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    report_data = buffer.getvalue()
+
+    # 2. 【關鍵】存入全域倉庫 (這樣全部下載才會抓到它)
+    if 'report_warehouse' in st.session_state:
+        st.session_state['report_warehouse']["2. 用戶基本資料報告"] = report_data
+    
+    st.success("✅ 用戶資料報告已生成！您可以在左側打包，或點擊下方單獨下載。")
+
+    # 3. 提供「單獨下載」按鈕 (只要這一頁的報告)
+    st.download_button(
+        label="💾 僅下載此份用戶資料報告",
+        data=report_data,
+        file_name="Basic_Info_Report.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
