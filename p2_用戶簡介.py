@@ -50,9 +50,9 @@ def fetch_exact_data():
                                 matches = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
                                 if matches:
                                     try:
-                                        num = float(matches[0])
+                                        num = int(round(float(matches[0])))
                                         if num > min_val:
-                                            return f"{num:,.2f}".replace(".00", "")
+                                            return f"{num:,d}"
                                     except:
                                         continue
                     return None
