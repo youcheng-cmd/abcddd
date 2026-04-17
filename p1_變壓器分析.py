@@ -7,36 +7,30 @@ from docx.oxml.ns import qn
 import io
 import re
 from collections import Counter
-# --- 【新增/檢查這一段】資料抓取邏輯 ---
-raw_df = None
-raw_df = pd.read_excel(uploaded_file, sheet_name=target_sheet, header=None)
-# 1. 優先從全域暫存抓取檔案 (對應 app.py 的 global_excel)
+# --- 1. 資料抓取邏輯 (全域優先) ---
+raw_df = None 
+
+# 優先檢查全域暫存
 if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
     try:
-        # 讀取全域檔案中的「表八」工作表
         uploaded_file = st.session_state['global_excel']
         xl = pd.ExcelFile(uploaded_file)
-        
-        # 判斷裡面有沒有「八、電能系統資料」或「表八」
         target_sheet = None
         for s in xl.sheet_names:
-            if "表八" in s or "電能系統資料" in s:
+            if any(k in s for k in ["表八", "電能系統資料", "表8"]):
                 target_sheet = s
                 break
-        
-       raw_df = pd.read_excel(uploaded_file, header=None)
-            df = pd.read_excel(uploaded_file, sheet_name=target_sheet)
+        if target_sheet:
+            raw_df = pd.read_excel(uploaded_file, sheet_name=target_sheet, header=None)
             st.info(f"💡 已自動從全域檔案抓取：{target_sheet}")
     except Exception as e:
-        st.warning(f"全域檔案讀取失敗，請手動上傳：{e}")
+        st.warning(f"全域檔案讀取失敗：{e}")
 
-# 2. 如果全域沒檔案，才顯示本頁的局部上傳框
+# 若全域沒檔案，才顯示本頁上傳框
 if raw_df is None:
     uploaded_file_local = st.file_uploader("請上傳您的 Excel 檔案 (包含表八)", type=["xlsx"], key="local_p1_up")
     if uploaded_file_local:
-        # 注意：這裡要把讀取的結果存入 raw_df
         raw_df = pd.read_excel(uploaded_file_local, header=None)
-
 # --- 以下接原本的 AMT_SPECS 資料庫與後續計算 ---
 # --- 這裡放資料庫 ---
 AMT_SPECS = {
