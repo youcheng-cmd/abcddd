@@ -37,72 +37,47 @@ def fetch_exact_data():
             if sheet_b:
                 df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
                 
-                # --- 核心修正：強化數字搜尋邏輯 ---
-                def find_correct_value(row_items, keyword, min_val=0):
+                # --- 定義內部搜尋函數 (確保縮排在此處正確) ---
+                def get_near_value(items, keyword, min_val=0):
                     import re
-                    candidates = []
-                    for item in row_items:
-                        if item is None or str(item).lower() == "nan":
-                            continue
-                        
-                        clean = str(item).replace(",", "").replace(" ", "")
-                        # 排除掉包含關鍵字本身的格子 (標籤格)
-                        if keyword in clean:
-                            continue
-                            
-                        # 使用正規表達式挖出數字
-                        matches = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
-                        for m in matches:
-                            try:
-                                num = float(m)
-                                # 面積/時數通常很大，過濾掉像 18.0 (序號) 或 115 (年份) 的小數字
-                                if num > min_val:
-                                    candidates.append(num)
-                            except:
-                                continue
-                    
-                    if candidates:
-                        # 面積通常是那一列中最大的數字
-                        final_num = max(candidates)
-                        return f"{final_num:,.2f}".replace(".00", "")
+                    for i, item in enumerate(items):
+                        if keyword in str(item):
+                            # 找到關鍵字後，往後搜尋 4 格
+                            for target in items[i+1 : i+5]:
+                                if target is None or str(target).lower() == "nan":
+                                    continue
+                                clean = str(target).replace(",", "").replace(" ", "")
+                                matches = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
+                                if matches:
+                                    try:
+                                        num = float(matches[0])
+                                        if num > min_val:
+                                            return f"{num:,.2f}".replace(".00", "")
+                                    except:
+                                        continue
                     return None
 
-               for r in range(len(df_b)):
+                # 遍歷每一列進行匹配
+                for r in range(len(df_b)):
                     row_list = list(df_b.iloc[r, :])
+                    row_str = "".join([str(i) for i in row_list])
                     
-                    # 輔助函數：找到關鍵字後，抓取其右邊最近的一個數字
-                    def get_near_value(items, keyword, min_val=0):
-                        import re
-                        for i, item in enumerate(items):
-                            if keyword in str(item):
-                                # 找到關鍵字後，往後搜尋 3 格
-                                for target in items[i+1 : i+4]:
-                                    clean = str(target).replace(",", "").replace(" ", "")
-                                    # 挖出數字
-                                    matches = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
-                                    if matches:
-                                        try:
-                                            num = float(matches[0])
-                                            if num > min_val:
-                                                return f"{num:,.2f}".replace(".00", "")
-                                        except: continue
-                        return None
+                    if "員工人數" in row_str:
+                        res = get_near_value(row_list, "員工人數")
+                        if res: info["emp"] = res
 
-                    # 1. 員工人數 (關鍵字右側)
-                    emp_res = get_near_value(row_list, "員工人數")
-                    if emp_res: info["emp"] = emp_res
+                    if "全年工作時數" in row_str:
+                        # 只抓 5780，避開右邊的面積
+                        res = get_near_value(row_list, "全年工作時數")
+                        if res: info["hours"] = res
 
-                    # 2. 全年工作時數 (關鍵字右側，通常在 D 欄)
-                    hours_res = get_near_value(row_list, "全年工作時數")
-                    if hours_res: info["hours"] = hours_res
+                    if "總樓地板面積" in row_str:
+                        res = get_near_value(row_list, "總樓地板面積", min_val=100)
+                        if res: info["area"] = res
 
-                    # 3. 總樓地板面積 (關鍵字右側，通常在 J 或 L 欄)
-                    area_res = get_near_value(row_list, "總樓地板面積", min_val=100)
-                    if area_res: info["area"] = area_res
-
-                    # 4. 空調使用面積 (關鍵字右側)
-                    air_res = get_near_value(row_list, "總空調使用面積", min_val=100)
-                    if air_res: info["air_area"] = air_res
+                    if "總空調使用面積" in row_str:
+                        res = get_near_value(row_list, "總空調使用面積", min_val=100)
+                        if res: info["air_area"] = res
                     
                     if "填表日期" in row_str:
                         for item in reversed(row_list):
@@ -113,6 +88,7 @@ def fetch_exact_data():
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
             
+    # 清理數據
     for k in info:
         if "nan" in str(info[k]).lower() or not str(info[k]).strip():
             info[k] = "0" if k != "comp" else "未抓到名稱"
