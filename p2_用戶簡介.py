@@ -85,22 +85,28 @@ def fetch_exact_data():
             st.error(f"解析發生錯誤: {e}")
     return info
 
-# --- 3. 介面佈局 ---
+# --- 3. 介面 ---
 st.title("📋 用戶簡介自動化")
 data_pack = fetch_exact_data()
 
-c1, c2 = st.columns(2)
-with c1:
-    v_comp = st.text_input("用戶名稱 (紅字1)", data_pack["comp"])
-    v_area = st.text_input("總面積 (紅字2)", data_pack["area"])
-    v_air = st.text_input("空調面積 (紅字3)", data_pack["air_area"])
-with c2:
-    v_emp = st.text_input("員工人數 (紅字4)", data_pack["emp"])
-    v_hours = st.text_input("工作時數 (紅字5)", data_pack["hours"])
-    v_date = st.text_input("診斷日期 (紅字6)", data_pack["date"])
-# --- 電力系統介面 ---
+# 把自動帶入的資料收進摺疊盒 (expander)
+with st.expander("🔍 檢視/微調自動抓取資料 (通常不需修改)"):
+    ec1, ec2 = st.columns(2)
+    with ec1:
+        v_comp = st.text_input("用戶名稱 (紅字1)", data_pack["comp"])
+        v_area = st.text_input("總面積 (紅字2)", data_pack["area"])
+        v_air = st.text_input("空調面積 (紅字3)", data_pack["air_area"])
+    with ec2:
+        v_emp = st.text_input("員工人數 (紅字4)", data_pack["emp"])
+        v_hours = st.text_input("工作時數 (紅字5)", data_pack["hours"])
+
+# 這裡單獨放「診斷日期」，因為你說這個最常改
+v_date = st.text_input("📅 診斷日期 (紅字6)", data_pack["date"])
+
+# --- 電力系統介面 (維持原樣) ---
 st.markdown("### ⚡ 電力系統資料")
 e_c1, e_c2, e_c3 = st.columns(3)
+# ... 下面原本 e_c1, e_c2, e_c3 的內容維持不變 ...
 with e_c1:
     v_elec_id = st.text_input("台電電號", data_pack["elec_id"])
     v_contract_type = st.text_input("契約型式", data_pack["contract_type"])
