@@ -28,86 +28,65 @@ def fetch_exact_data():
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # --- 處理「表五之二」 (抓電號、度數、需量、功因) ---
+           # --- 1. 處理「表五之二」 (抓取電號及所有用電數據) ---
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
                 
-                # 1. 抓電號 (固定在 A3 格附近)
+                # 抓電號 (A3 格)
                 import re
                 p3_val = str(df_p.iloc[2, 0])
                 id_match = re.search(r'\d{11}', p3_val.replace("-", ""))
                 if id_match: info["elec_id"] = id_match.group()
 
-               # 2. 遍歷每一列，尋找「合計」與「平均」
+                # 遍歷每一列，看到關鍵字就抓
                 for r_idx in range(len(df_p)):
                     row_list = df_p.iloc[r_idx, :].tolist()
                     row_str = "".join([str(x) for x in row_list])
                     
-                    # 檢查這一列的長度，確保至少有 16 欄 (索引到 15)
-                    row_len = len(row_list)
+                    # A. 抓「合計」列 (年總度數、年總金額)
+                    if "合計" in row_str and len(row_list) > 15:
+                        if pd.notnull(row_list[12]): info["total_kwh"] = f"{int(float(row_list[12])):,d}"
+                        if pd.notnull(row_list[15]): info["total_fee"] = f"{int(float(row_list[15])):,d}"
 
-                    if "合計" in row_str:
-                        # 度數合計：索引 12 (第 13 欄)
-                        if row_len > 12:
-                            val_kwh = row_list[12]
-                            if pd.notnull(val_kwh) and str(val_kwh).strip() != "-":
-                                try: info["total_kwh"] = f"{int(float(val_kwh)):,d}"
-                                except: pass
-                        # 總電費：索引 15 (第 16 欄)
-                        if row_len > 15:
-                            val_fee = row_list[15]
-                            if pd.notnull(val_fee) and str(val_fee).strip() != "-":
-                                try: info["total_fee"] = f"{int(float(val_fee)):,d}"
-                                except: pass
+                    # B. 抓「平均」列 (契約容量、平均功因、平均單價)
+                    if "平均" in row_str and len(row_list) > 15:
+                        if pd.notnull(row_list[3]): info["contract_cap"] = str(int(float(row_list[3])))
+                        if pd.notnull(row_list[14]): info["avg_pf"] = str(int(float(row_list[14])))
+                        if pd.notnull(row_list[15]): info["avg_price"] = str(round(float(row_list[15]), 2))
 
-                    if "平均" in row_str:
-                        # 契約容量：索引 3
-                        if row_len > 3:
-                            val_cap = row_list[3]
-                            if pd.notnull(val_cap) and str(val_cap).strip() != "-":
-                                try: info["contract_cap"] = str(int(float(val_cap)))
-                                except: pass
-                        # 平均功因：索引 14
-                        if row_len > 14:
-                            val_pf = row_list[14]
-                            if pd.notnull(val_pf) and str(val_pf).strip() != "-":
-                                try: info["avg_pf"] = str(int(float(val_pf)))
-                                except: pass
-                        # 平均單價：索引 15
-                        if row_len > 15:
-                            val_pr = row_list[15]
-                            if pd.notnull(val_pr) and str(val_pr).strip() != "-":
-                                try: info["avg_price"] = str(round(float(val_pr), 2))
-                                except: pass
+                # C. 抓「需量」 (掃描整張表 E, F, G, H 欄找最大值)
+                demands_peak = []
+                demands_off = []
+                for r_d in range(9, 21): # 1~12月
+                    try:
+                        # 尖峰/半尖峰 (E, F, G 欄)
+                        for c_idx in [4, 5, 6]:
+                            v = df_p.iloc[r_d, c_idx]
+                            if pd.notnull(v) and str(v).strip() not in ["-", "0", "0.0"]: demands_peak.append(float(v))
+                        # 離峰 (H 欄)
+                        v_off = df_p.iloc[r_d, 7]
+                        if pd.notnull(v_off) and str(v_off).strip() not in ["-", "0", "0.0"]: demands_off.append(float(v_off))
+                    except: continue
+                if demands_peak: info["peak_max"] = str(int(max(demands_peak)))
+                if demands_off: info["offpeak_max"] = str(int(max(demands_off)))
 
-                # 3. 抓最高需量 (掃描 E~H 欄的所有月份數字，找最大值)
-                # 需量範圍約在第 10 列到 21 列 (索引 9~20)，欄位 E, F, G, H (索引 4, 5, 6, 7)
-                demand_list = []
-                for r_demand in range(9, 21):
-                    for c_demand in [4, 5, 6, 7]:
-                        v = df_p.iloc[r_demand, c_demand]
-                        try:
-                            if pd.notnull(v) and str(v).strip() != "-":
-                                demand_list.append(float(v))
-                        except: continue
-                if demand_list:
-                    info["peak_max"] = str(int(max(demand_list)))
-            # --- 處理「表八」(變壓器、電容器) ---
+            # --- 2. 處理「表八」 (只抓電容器容量) ---
             sheet_8 = next((s for s in xl.sheet_names if "八" in s), None)
             if sheet_8:
                 df_8 = pd.read_excel(file, sheet_name=sheet_8, header=None)
                 try:
-                    # 變壓器容量加總 F8, G8, H8 (索引 7, 欄 5, 6, 7)
+                    # 電容器通常在右下角 O26 (索引 25, 14)
+                    val_cap = df_8.iloc[25, 14]
+                    if pd.notnull(val_cap): info["cap_cap"] = str(int(float(val_cap)))
+                    
+                    # 順便檢查變壓器 (F8, G8, H8)
                     t_sum = 0
-                    for c in [5, 6, 7]:
-                        v = df_8.iloc[7, c]
-                        if pd.notnull(v): t_sum += float(v)
-                    info["trans_cap"] = f"{int(t_sum):,d}"
-                    # 高壓電容器 O26 (索引 25, 欄 14)
-                    info["cap_cap"] = str(int(float(df_8.iloc[25, 14])))
-                except:
-                    pass
+                    for c_t in [5, 6, 7]:
+                        v_t = df_8.iloc[7, c_t]
+                        if pd.notnull(v_t): t_sum += float(v_t)
+                    if t_sum > 0: info["trans_cap"] = f"{int(t_sum):,d}"
+                except: pass
 
             # --- 處理「基本資料」(人數、面積、工時) ---
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
