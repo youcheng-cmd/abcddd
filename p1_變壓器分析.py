@@ -410,17 +410,17 @@ if all_transformer_data:
         set_font_kai(p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = "), size=12, color=RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p6.add_run(f"{payback_year:.1f} 年"), size=12, color=RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p6.add_run("(註：回收年限會依報價廠家不同而有所增減)。"), size=12, is_bold=True)
-       output = io.BytesIO()
-       doc.save(output)
-    report_data = output.getvalue() # 取得 Word 的二進位資料
+        output = io.BytesIO()
+        doc.save(output)
+        report_data = output.getvalue() # 取得 Word 的二進位資料
 
-    # 【新增這行】將報告存入全域倉庫，名稱設定為 "1. 變壓器分析報告"
-    if 'report_warehouse' in st.session_state:
+        # 【新增這行】將報告存入全域倉庫，名稱設定為 "1. 變壓器分析報告"
+        if 'report_warehouse' in st.session_state:
         st.session_state['report_warehouse']["1. 變壓器分析報告"] = report_data
     
-    st.success("✅ 變壓器報告已生成！您可以在左側側邊欄打包下載。")
+        st.success("✅ 變壓器報告已生成！您可以在左側側邊欄打包下載。")
 
-    # (選配) 如果你還是想在這一頁留一個獨立下載按鈕，可以加這行：
-    st.download_button("💾 下載此份變壓器報告", report_data, "Transformer_Analysis.docx")
+        # (選配) 如果你還是想在這一頁留一個獨立下載按鈕，可以加這行：
+        st.download_button("💾 下載此份變壓器報告", report_data, "Transformer_Analysis.docx")
         output.seek(0)
         st.download_button("📥 下載完整報告", output, "Transformer_Report_Final.docx")
