@@ -24,42 +24,62 @@ def fetch_exact_data():
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # 1. 抓取基本資料表 (模糊匹配)
-            sheet_b = next((s for s in xl.sheet_names if "基本資料" in s), "三、能源用戶基本資料")
-            df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
-            
-            # 2. 抓取電能統計表 (模糊匹配：解決 Worksheet not found 的元兇)
+            # --- 1. 定位表五之二 (抓用戶名稱) ---
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
-            
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
-                # 抓取 E6 (索引 [5, 4])
-                raw_comp = str(df_p.iloc[5, 4]).strip()
-                if raw_comp != "nan" and raw_comp != "":
-                    info["comp"] = raw_comp.replace("\n", "").split('(')[0]
-                else:
-                    info["comp"] = "E6格是空的"
+                # 確保 E6 (5, 4) 存在
+                if len(df_p) > 5 and len(df_p.columns) > 4:
+                    raw_comp = str(df_p.iloc[5, 4]).strip()
+                    info["comp"] = raw_comp.replace("\n", "").split('(')[0] if raw_comp != "nan" else "未抓到名稱"
+            
+            # --- 2. 定位表三 (抓取數值數據) ---
+            # 改用模糊搜尋，找包含 "三" 或 "基本資料" 的表
+            sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
+            
+            if sheet_b:
+                df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
+                num_rows = len(df_b)
+                num_cols = len(df_b.columns)
+
+                for r in range(num_rows):
+                    # 讀取該列所有文字進行比對
+                    row_str = "".join(map(str, df_b.iloc[r, :]))
+                    
+                    # 抓員工人數 (J15 或 L15)
+                    if "員工人數" in row_str:
+                        # 安全檢查：如果有 L 欄 (11) 就抓 L，否則抓 J (9)
+                        idx = 11 if num_cols > 11 else (9 if num_cols > 9 else -1)
+                        if idx != -1:
+                            info["emp"] = str(df_b.iloc[r, idx]).replace(".0", "").strip()
+
+                    # 抓工作時數 (D16)
+                    if "工作時數" in row_str:
+                        if num_cols > 3:
+                            info["hours"] = str(df_b.iloc[r, 3]).replace(".0", "").strip()
+
+                    # 抓總面積 (L16 或 J16)
+                    if "總樓地板面積" in row_str:
+                        idx = 11 if num_cols > 11 else (9 if num_cols > 9 else -1)
+                        if idx != -1:
+                            info["area"] = str(df_b.iloc[r, idx]).strip()
+
+                    # 抓空調面積 (D17)
+                    if "空調使用面積" in row_str:
+                        if num_cols > 3:
+                            info["air_area"] = str(df_b.iloc[r, 3]).strip()
+                
+                # 抓診斷日期 (通常在第 3 列附近)
+                if num_rows > 2 and num_cols > 8:
+                    info["date"] = str(df_b.iloc[2, 8]).replace("填表日期：", "").strip()
+            
             else:
-                info["comp"] = "找不到表五之二"
-
-            # --- 以下維持你原本的邏輯 ---
-            for r in range(13, 17): 
-                row_str = "".join(map(str, df_b.iloc[r, :]))
-                if "員工人數" in row_str:
-                    val_j = str(df_b.iloc[r, 9]).strip()
-                    val_l = str(df_b.iloc[r, 11]).strip()
-                    info["emp"] = val_l if val_l != "nan" else val_j
-                    info["emp"] = info["emp"].replace(".0", "")
-
-            info["hours"] = str(df_b.iloc[15, 3]).replace(".0", "").strip()
-            info["area"] = str(df_b.iloc[15, 11]).strip()
-            info["air_area"] = str(df_b.iloc[16, 3]).strip()
-            info["date"] = str(df_b.iloc[2, 8]).replace("填表日期：", "").strip()
+                st.error("Excel 中找不到包含 '三' 或 '基本資料' 的工作表")
 
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
             
-    # 清理數據
+    # 最後清理資料，如果是 nan 就歸 0
     for k in info:
         if info[k] == "nan" or not info[k]: 
             info[k] = "0" if k != "comp" else "未抓到名稱"
