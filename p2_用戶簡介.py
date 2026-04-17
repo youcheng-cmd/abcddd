@@ -17,7 +17,12 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 # --- 2. 修正版數據抓取邏輯 ---
 # --- 修正版：只抓用戶名字測試 ---
 def fetch_exact_data():
-    info = {"comp": "", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": ""}
+    # 這裡直接給預設值
+    info = {"comp": "", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
+    
+    # ... 中間抓取公司、面積、人數的代碼維持不變 ...
+
+    # 【刪除】原本那段 if "填表日期" in row_str: ... 的代碼，不要從 Excel 撈日期了
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
@@ -114,13 +119,9 @@ with c2:
     v_emp = st.text_input("員工人數 (紅字4)", d["emp"])
     v_hours = st.text_input("工作時數 (紅字5)", d["hours"])
     # 這裡加一個 .replace 確保從 Excel 抓過來的日期不會帶有「填表日期：」
-# 並且如果抓到的是空的，就顯示 115年1月1日
-display_date = d["date"].replace("填表日期：", "").strip()
-if not display_date or display_date == "0":
-    display_date = "115年1月1日"
-
-v_date = st.text_input("診斷日期 (紅字6)", display_date)
-
+# 修改第 116 行
+# 不再做任何 replace，直接讓使用者填寫
+v_date = st.text_input("診斷日期 (紅字6)", d["date"])
 # --- 4. 生成 Word 並下載 ---
 doc = Document()
 
@@ -146,8 +147,7 @@ set_font_kai(p.add_run("人，全年使用時間約"))
 set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0)) # 紅
 set_font_kai(p.add_run("小時，"))
 # 使用 .replace 強制刪除變數中可能帶有的「填表日期：」字樣
-clean_date = v_date.replace("填表日期：", "").strip()
-set_font_kai(p.add_run(clean_date), color=RGBColor(255, 0, 0)) # 紅
+set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) # 紅
 set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
 
 # --- 生成下載按鈕 ---
