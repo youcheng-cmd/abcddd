@@ -43,29 +43,46 @@ def fetch_exact_data():
                     row_list = [str(val).strip() for val in df_b.iloc[r, :]]
                     row_str = "".join(row_list)
                     
-                    # --- 搜尋邏輯：看到關鍵字，就抓那一列中「看起來像數字」的格子 ---
-                    def find_number_in_row(row_items):
+                   # --- 搜尋邏輯：加強版 (支援小數點與單位) ---
+                    def find_number_in_row(row_items, keyword):
                         for item in row_items:
-                            # 移除逗號跟空格，檢查是不是純數字
-                            clean_item = item.replace(",", "").replace(" ", "").replace(".0", "")
-                            if clean_item.isdigit() and len(clean_item) > 0:
-                                return item
+                            # 移除所有非數字、非小數點的字元
+                            clean = str(item).replace(",", "").replace(" ", "")
+                            
+                            # 避開標籤格 (標籤格通常包含關鍵字本身，如 "18.總樓地板面積")
+                            if keyword in clean:
+                                continue
+                                
+                            # 試著轉成浮點數，成功代表這格是我們要的數字
+                            try:
+                                # 這裡排除掉太小的數字(例如1.0)，避免抓到註解序號
+                                num = float(clean)
+                                if num > 2: 
+                                    return f"{num:,.2f}".replace(".00", "")
+                            except:
+                                # 如果有帶單位，例如 "23666.09 平方公尺"，用正則表達式把數字挖出來
+                                import re
+                                match = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
+                                if match:
+                                    num = float(match[0])
+                                    if num > 2:
+                                        return f"{num:,.2f}".replace(".00", "")
                         return None
 
                     if "員工人數" in row_str:
-                        res = find_number_in_row(row_list)
-                        if res: info["emp"] = res.replace(".0", "")
+                        res = find_number_in_row(row_list, "員工人數")
+                        if res: info["emp"] = res
 
                     if "全年工作時數" in row_str:
-                        res = find_number_in_row(row_list)
-                        if res: info["hours"] = res.replace(".0", "")
+                        res = find_number_in_row(row_list, "工作時數")
+                        if res: info["hours"] = res
 
                     if "總樓地板面積" in row_str:
-                        res = find_number_in_row(row_list)
+                        res = find_number_in_row(row_list, "面積")
                         if res: info["area"] = res
 
                     if "空調使用面積" in row_str:
-                        res = find_number_in_row(row_list)
+                        res = find_number_in_row(row_list, "空調")
                         if res: info["air_area"] = res
                     
                     if "填表日期" in row_str or (r == 2 and "年" in row_str):
