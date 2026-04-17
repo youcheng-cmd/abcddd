@@ -17,56 +17,61 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 # --- 2. 修正版數據抓取邏輯 ---
 # --- 修正版：只抓用戶名字測試 ---
 def fetch_exact_data():
-    info = {
-        "comp": "", # 沒抓到就留白，不要預設值
-        "area": "0", 
-        "air_area": "0", 
-        "emp": "0", 
-        "hours": "0", 
-        "date": "115年2月26日"
-    }
+    info = {"comp": "", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年2月26日"}
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # --- 鎖定【表五之二】 ---
+            # 1. 定位【表五之二】
             p_sheet = next((s for s in xl.sheet_names if "五之二" in s), None)
             if p_sheet:
-                # 讀取整張表，不設標題
                 df_p = pd.read_excel(file, sheet_name=p_sheet, header=None)
                 
-                # 開始地毯式搜尋「戶名」這兩個字
                 for r in range(len(df_p)):
                     for c in range(len(df_p.columns)):
-                        cell_val = str(df_p.iloc[r, c]).replace(" ", "").replace("\n", "")
+                        cell_val = str(df_p.iloc[r, c])
                         
+                        # 找到「戶名」標籤
                         if "戶名" in cell_val:
-                            # 座標對接：根據截圖，名字通常在「戶名」標籤的【正下方】(r+1)
-                            # 但因為有合併儲存格，我們要往右掃描 (c 到 c+5) 找到第一個有字的人
-                            for target_c in range(c, c + 6):
-                                candidate = str(df_p.iloc[r + 1, target_c]).strip()
-                                if candidate != "nan" and candidate != "":
-                                    # 抓到了！去掉括號贅字
-                                    info["comp"] = candidate.split('(')[0].split('（')[0]
-                                    break
-                            break # 抓到名字就跳出迴圈
+                            # 關鍵修正：在「戶名」正下方那一列 (r+1)，往右搜尋 5 格
+                            # 這樣不論它是合併在 E, F 還是 G 欄，都能抓到
+                            for offset_c in range(0, 5):
+                                target_c = c + offset_c
+                                if target_c < len(df_p.columns):
+                                    candidate = str(df_p.iloc[r + 1, target_c]).strip()
+                                    if candidate != "nan" and candidate != "":
+                                        # 成功抓到「凱格運動事業股份有限公司」
+                                        # 同時過濾掉換行符號（因為 Excel 裡可能按了 Alt+Enter）
+                                        info["comp"] = candidate.replace("\n", "").split('(')[0]
+                                        break
+                            break 
             
-            # --- 鎖定【三、能源用戶基本資料】 (抓取其他數值) ---
+            # 2. 定位【三、能源用戶基本資料】 (抓取面積、人數、工作時數)
+            # 這裡我們一個一個來檢視：
             b_sheet = next((s for s in xl.sheet_names if "能源用戶基本資料" in s), None)
             if b_sheet:
                 df_b = pd.read_excel(file, sheet_name=b_sheet, header=None)
                 for r in range(len(df_b)):
-                    label = str(df_b.iloc[r, 1]) # 檢查 B 欄
-                    if "18.總樓地板面積" in label:
-                        info["area"] = str(df_b.iloc[r, 9]).strip() # J16
-                    if "19.總空調使用面積" in label:
-                        info["air_area"] = str(df_b.iloc[r, 3]).strip() # D17
-                    # 這裡先只修名字，如果你發現員工人數 (紅字4) 還是 0，等等我們再修它
+                    label = str(df_b.iloc[r, 1]) # B 欄標籤
+                    
+                    # 紅字 4：員工人數 (J15) -> Python 索引 [r, 9]
+                    if "16.員工人數" in label:
+                        info["emp"] = str(df_b.iloc[r, 9]).strip()
+                    
+                    # 紅字 5：全年工作時數 (D16) -> Python 索引 [r, 3]
+                    if "17.全年工作時數" in label:
+                        info["hours"] = str(df_b.iloc[r, 3]).replace(".0", "").strip()
                         
+                    # 面積部分 (J16 與 D17)
+                    if "18.總樓地板面積" in label:
+                        info["area"] = str(df_b.iloc[r, 9]).strip()
+                    if "19.總空調使用面積" in label:
+                        info["air_area"] = str(df_b.iloc[r, 3]).strip()
+
         except Exception as e:
-            st.error(f"解析過程中發生錯誤: {e}")
+            st.error(f"抓取失敗: {e}")
             
     return info
 
