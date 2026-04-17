@@ -89,24 +89,21 @@ def fetch_exact_data():
 # --- 3. 介面 ---
 st.title("📋 節能診斷自動化工具")
 
-# 只調用這一次
+# 調用數據抓取函數 (請確保你的函數名稱是 fetch_exact_data)
+# 這裡統一名稱為 info_result 和 elec_systems
 info_result, elec_systems = fetch_exact_data()
 
-with st.expander("🔍 檢視/微調自動抓取資料"):
+with st.expander("🔍 檢視/微調自動抓取資料", expanded=True):
     ec1, ec2 = st.columns(2)
     with ec1:
-        # 使用 info_result 內的資料
+        # 修正點：使用 info_result 而不是 info
         v_comp = st.text_input("用戶名稱", info_result["comp"])
-        v_area = st.text_input("總面積", info_result["area"])
-        v_air = st.text_input("空調面積", info_result["air_area"])
+        v_area = st.text_input("總面積 (m2)", info_result["area"])
+        v_air = st.text_input("空調面積 (m2)", info_result["air_area"])
     with ec2:
         v_emp = st.text_input("員工人數", info_result["emp"])
-        v_hours = st.text_input("工作時數", info_result["hours"])
-
-v_date = st.text_input("📅 診斷日期", info_result["date"])
-
-# 電力系統 Tabs 保持你寫的那樣，但要補齊所有欄位 (單價, 需量等)
-# ... (這裡維持你截圖中 col1, col2, col3 的邏輯) ...
+        v_hours = st.text_input("工作時數 (hr/y)", info_result["hours"])
+        v_date = st.text_input("📅 診斷日期", info_result["date"])
 
 st.markdown("### ⚡ 電力系統設備資料")
 # 根據電號數量產生標籤頁
@@ -115,12 +112,18 @@ if elec_systems:
     for i, tab in enumerate(tabs):
         with tab:
             col1, col2, col3 = st.columns(3)
-            # 注意：這裡的變數要存回 elec_systems[i] 裡面，且 key 要唯一
+            # 將輸入值存回 elec_systems[i]，確保 Word 抓得到最新的手動修改值
             elec_systems[i]['elec_id'] = col1.text_input("台電電號", elec_systems[i]['elec_id'], key=f"id_{i}")
-            elec_systems[i]['total_kwh'] = col1.text_input("年總用電度", elec_systems[i]['total_kwh'], key=f"kwh_{i}")
-            elec_systems[i]['contract_cap'] = col2.text_input("契約容量", elec_systems[i]['contract_cap'], key=f"cap_{i}")
-            elec_systems[i]['trans_cap'] = col2.text_input("主變壓器容量", elec_systems[i]['trans_cap'], key=f"trans_{i}")
-            # ... 依此類推補完其他欄位 ...
+            elec_systems[i]['total_kwh'] = col1.text_input("年總用電度 [kWh]", elec_systems[i]['total_kwh'], key=f"kwh_{i}")
+            elec_systems[i]['total_fee'] = col1.text_input("年總金額 [元]", elec_systems[i]['total_fee'], key=f"fee_{i}")
+            
+            elec_systems[i]['contract_cap'] = col2.text_input("契約容量 [kW]", elec_systems[i]['contract_cap'], key=f"cap_{i}")
+            elec_systems[i]['trans_cap'] = col2.text_input("主變壓器容量 [kVA]", elec_systems[i]['trans_cap'], key=f"trans_{i}")
+            elec_systems[i]['cap_cap'] = col2.text_input("電容器容量 [kVAR]", elec_systems[i]['cap_cap'], key=f"c_cap_{i}")
+            
+            elec_systems[i]['avg_pf'] = col3.text_input("平均功因 [%]", elec_systems[i]['avg_pf'], key=f"pf_{i}")
+            elec_systems[i]['peak_max'] = col3.text_input("尖峰最高需量 [kW]", elec_systems[i]['peak_max'], key=f"p_max_{i}")
+            elec_systems[i]['offpeak_max'] = col3.text_input("離峰最高需量 [kW]", elec_systems[i]['offpeak_max'], key=f"o_max_{i}")
 
 # --- 4. 封裝 Word 生成邏輯 ---
 def generate_docx(comp, area, air, emp, hours, date, elecs):
@@ -136,7 +139,6 @@ def generate_docx(comp, area, air, emp, hours, date, elecs):
     p = doc.add_paragraph()
     p.paragraph_format.first_line_indent = Pt(28)
     
-    # 使用傳入的參數填寫內文
     set_font_kai(p.add_run(comp), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("總建物面積"))
     set_font_kai(p.add_run(area), color=RGBColor(255, 0, 0))
@@ -154,44 +156,42 @@ def generate_docx(comp, area, air, emp, hours, date, elecs):
 
     # 3. 循環生成電力表格
     for i, e in enumerate(elecs):
-        doc.add_paragraph() # 空一行
-        # 標題： 1.1 電力系統、1.2 電力系統...
+        doc.add_paragraph() 
         set_font_kai(doc.add_paragraph().add_run(f"1.{i+1} 電力系統 (電號：{e['elec_id']})："), is_bold=True)
 
         table = doc.add_table(rows=5, cols=3)
         table.style = 'Table Grid'
         
-        # --- 第一列：台電電號 (合併 3 欄) ---
+        # 第一列：台電電號
         cell_id = table.cell(0, 0); cell_id.merge(table.cell(0, 2))
         p_id = cell_id.paragraphs[0]
         set_font_kai(p_id.add_run("台電電號："), size=12)
         set_font_kai(p_id.add_run(e['elec_id']), size=12, color=RGBColor(255, 0, 0))
 
-        # --- 第二列：契約型式、容量、供電電壓 ---
+        # 第二列：契約型式、容量、供電電壓
         r1 = table.rows[1].cells
         set_font_kai(r1[0].paragraphs[0].add_run(f"契約型式：高壓 3 段式"), size=12)
         set_font_kai(r1[1].paragraphs[0].add_run(f"契約容量：{e['contract_cap']} [kW]"), size=12)
         set_font_kai(r1[2].paragraphs[0].add_run(f"台電供電電壓：{e.get('volt', '22.8')} [kV]"), size=12)
 
-        # --- 第三列：變壓器、電容器、低壓側 ---
+        # 第三列：變壓器、電容器、低壓側
         r2 = table.rows[2].cells
         set_font_kai(r2[0].paragraphs[0].add_run(f"主變壓器總裝置容量：{e['trans_cap']} [kVA]"), size=12)
         set_font_kai(r2[1].paragraphs[0].add_run(f"電容器裝置容量：{e['cap_cap']} [kVAR]"), size=12)
         set_font_kai(r2[2].paragraphs[0].add_run(f"低壓側電壓：380/220 [V]"), size=12)
 
-        # --- 第四列：年總度數、年總金額、平均單價 ---
+        # 第四列：用電度數、金額、平均單價
         r3 = table.rows[3].cells
         set_font_kai(r3[0].paragraphs[0].add_run(f"年總用電度：{e['total_kwh']} [kWh]"), size=12)
         set_font_kai(r3[1].paragraphs[0].add_run(f"年總金額：{e['total_fee']} [元]"), size=12)
         set_font_kai(r3[2].paragraphs[0].add_run(f"平均單價：{e.get('avg_price', '0')} [元/kWh]"), size=12)
 
-        # --- 第五列：平均功因、尖峰需量、離峰需量 ---
+        # 第五列：功因、需量
         r4 = table.rows[4].cells
         set_font_kai(r4[0].paragraphs[0].add_run(f"平均功因：{e['avg_pf']} [%]"), size=12)
         set_font_kai(r4[1].paragraphs[0].add_run(f"尖峰最高需量：{e.get('peak_max', '0')} [kW]"), size=12)
         set_font_kai(r4[2].paragraphs[0].add_run(f"離峰最高需量：{e.get('offpeak_max', '0')} [kW]"), size=12)
 
-        # 統一置中
         for row in table.rows:
             for cell in row.cells: cell.vertical_alignment = 1
 
@@ -201,11 +201,10 @@ def generate_docx(comp, area, air, emp, hours, date, elecs):
 
 # --- 5. 一鍵下載按鈕 ---
 st.markdown("---")
-# 這裡確保把所有網頁上更新過的變數 (v_...) 都傳進去
 if st.download_button(
     label="💾 生成並下載用戶簡介 Word",
     data=generate_docx(v_comp, v_area, v_air, v_emp, v_hours, v_date, elec_systems),
     file_name=f"能源用戶簡介_{v_comp}.docx",
     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ):
-    st.success("報告已成功生成並下載！")
+    st.success("✅ 報告已成功生成！")
