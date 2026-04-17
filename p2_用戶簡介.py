@@ -5,27 +5,42 @@ import io
 
 # --- 1. 自動抓取函數 ---
 def fetch_basic_info():
+    # 預設值，萬一沒抓到就顯示這個
     info = {
-        "company_name": "誠友開發股份有限公司", # 預設值
-        "area": "0", "employees": "0", "cid": "0000000000",
-        "contract_cap": "0", "total_kwh": "0", "total_fee": "0"
+        "company_name": "家福股份有限公司", 
+        "cid": "0000000000",
+        "area": "0", 
+        "employees": "0"
     }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
             file = st.session_state['global_excel']
-            # 讀取基本資料表
-            df_basic = pd.read_excel(file, sheet_name="三、能源用戶基本資料", header=None)
-            # 這裡用座標或搜尋文字抓取
-            info["company_name"] = df_basic.iloc[4, 3] # D5
-            info["area"] = df_basic.iloc[15, 11]       # L16
+            xl = pd.ExcelFile(file)
             
-            # 讀取電能表
-            df_power = pd.read_excel(file, sheet_name=0, header=None) # 假設第一個是電能表
-            # ... 依此類推抓取電號、電費 ...
-            st.success("✅ 已自動從 Excel 帶入基本資料")
-        except:
-            st.warning("⚠️ 自動抓取部分失敗，請手動校對")
+            # --- 1. 抓取「能源用戶基本資料」工作表 ---
+            sheet_name = next((s for s in xl.sheet_names if "用戶基本資料" in s), None)
+            if sheet_name:
+                df = pd.read_excel(file, sheet_name=sheet_name, header=None)
+                # 遍歷整個表格找關鍵字
+                for r in range(len(df)):
+                    for c in range(len(df.columns)):
+                        val = str(df.iloc[r, c])
+                        if "能源用戶名稱" in val:
+                            info["company_name"] = str(df.iloc[r, c+1]).split('(')[0].strip()
+                        elif "電號" in val:
+                            info["cid"] = str(df.iloc[r, c+1]).strip()
+                        elif "總樓地板面積" in val:
+                            info["area"] = str(df.iloc[r, c+1]).strip()
+                        elif "員工人數" in val:
+                            info["employees"] = str(df.iloc[r, c+1]).strip()
+                st.success(f"✅ 已從【{sheet_name}】自動帶入資料")
+            else:
+                st.warning("⚠️ 找不到名為「能源用戶基本資料」的工作表")
+                
+        except Exception as e:
+            st.error(f"自動讀取失敗：{e}")
+            
     return info
 
 # --- 2. 顯示介面 ---
