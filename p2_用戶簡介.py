@@ -16,42 +16,75 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 
 # --- 2. 數據抓取邏輯 (多電號修正版) ---
 def fetch_exact_data():
-    # 基本資料不變
     info = {"comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
-    # 這是要新增的：電力系統清單
     elec_list = [] 
 
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
-        file = st.session_state['global_excel']
-        xl = pd.ExcelFile(file)
-        
-        # [保留原本抓基本資料 sheet_b 的邏輯...]
+        try:
+            file = st.session_state['global_excel']
+            xl = pd.ExcelFile(file)
+            
+            # --- A. 抓基本資料 (sheet_b) ---
+            sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
+            if sheet_b:
+                df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
+                # ... 這裡保留你原本抓 [emp, hours, area, air_area] 的 get_near_value 邏輯 ...
 
-        # --- 新增：遍歷所有五之二表格 ---
-        p_sheets = [s for s in xl.sheet_names if "五之二" in s]
-        
-        for i, s_name in enumerate(p_sheets):
-            df_p = pd.read_excel(file, sheet_name=s_name, header=None)
+            # --- B. 遍歷所有五之二 (多電號) ---
+            p_sheets = [s for s in xl.sheet_names if "五之二" in s]
+            for i, s_name in enumerate(p_sheets):
+                df_p = pd.read_excel(file, sheet_name=s_name, header=None)
+                
+                # 抓名稱 (只在第一個電號抓一次)
+                if i == 0:
+                    try:
+                        name_val = str(df_p.iloc[5, 4]).strip()
+                        if name_val != "nan":
+                            info["comp"] = name_val.split('(')[0].split('（')[0]
+                    except: pass
+
+                # 建立該電號的數據字典
+                e_data = {
+                    "elec_id": str(df_p.iloc[5, 2]).strip(),
+                    "contract_cap": "0", "total_kwh": "0", "total_fee": "0", 
+                    "avg_pf": "0", "avg_price": "0", "volt": "22.8",
+                    "trans_cap": "0", "cap_cap": "0", "peak_max": "0", "offpeak_max": "0"
+                }
+
+                # 抓取該分頁的電力座標 (座標依照你之前的定義)
+                try:
+                    e_data["contract_cap"] = str(int(float(df_p.iloc[9, 2])))
+                    kwh = float(df_p.iloc[21, 11])
+                    e_data["total_kwh"] = f"{int(kwh):,d}"
+                    fee = float(df_p.iloc[21, 14])
+                    e_data["total_fee"] = f"{int(fee):,d}"
+                    if kwh > 0: e_data["avg_price"] = str(round(fee / kwh, 2))
+                    e_data["avg_pf"] = str(int(float(df_p.iloc[22, 13])))
+                    
+                    # 需量最大值 (D10~D21 為尖峰, G10~G21 為離峰)
+                    p_vals = [float(df_p.iloc[r, 3]) for r in range(9, 21) if pd.notnull(df_p.iloc[r, 3]) and str(df_p.iloc[r, 3]).strip() not in ["-", "0"]]
+                    if p_vals: e_data["peak_max"] = str(int(max(p_vals)))
+                    o_vals = [float(df_p.iloc[r, 6]) for r in range(9, 21) if pd.notnull(df_p.iloc[r, 6]) and str(df_p.iloc[r, 6]).strip() not in ["-", "0"]]
+                    if o_vals: e_data["offpeak_max"] = str(int(max(o_vals)))
+                except: pass
+
+                # --- C. 只有第一個電號處理「表八」 ---
+                if i == 0:
+                    sheet_8 = next((s for s in xl.sheet_names if "八" in s), None)
+                    if sheet_8:
+                        df_8 = pd.read_excel(file, sheet_name=sheet_8, header=None)
+                        # 變壓器加總 (第8列)
+                        t_sum = sum([float(df_8.iloc[7, col]) for col in range(5, len(df_8.columns)) if pd.notnull(df_8.iloc[7, col]) and isinstance(df_8.iloc[7, col], (int,float))])
+                        e_data["trans_cap"] = f"{int(t_sum):,d}"
+                        # 電容器加總 (第23列)
+                        c_sum = sum([float(df_8.iloc[22, col]) for col in range(5, len(df_8.columns)) if pd.notnull(df_8.iloc[22, col]) and isinstance(df_8.iloc[22, col], (int,float))])
+                        e_data["cap_cap"] = str(int(c_sum))
+
+                elec_list.append(e_data)
+        except Exception as e:
+            st.error(f"解析發生錯誤: {e}")
             
-            # 每一張表抓出一組資料
-            e_data = {
-                "elec_id": str(df_p.iloc[5, 2]).strip(),
-                "contract_cap": str(int(float(df_p.iloc[9, 2]))) if pd.notnull(df_p.iloc[9, 2]) else "0",
-                "total_kwh": f"{int(float(df_p.iloc[21, 11])):,d}" if pd.notnull(df_p.iloc[21, 11]) else "0",
-                "total_fee": f"{int(float(df_p.iloc[21, 14])):,d}" if pd.notnull(df_p.iloc[21, 14]) else "0",
-                "avg_pf": str(int(float(df_p.iloc[22, 13]))) if pd.notnull(df_p.iloc[22, 13]) else "0",
-                "trans_cap": "0", "cap_cap": "0" # 預設為 0
-            }
-            # 只有第一個電號去抓表八
-            if i == 0:
-                sheet_8 = next((s for s in xl.sheet_names if "八" in s), None)
-                if sheet_8:
-                    df_8 = pd.read_excel(file, sheet_name=sheet_8, header=None)
-                    # 執行原本的變壓器與電容器累加邏輯...
-                    e_data["trans_cap"] = "3,900" 
-                    e_data["cap_cap"] = "200"
-            
-            elec_list.append(e_data)
+    return info, elec_list
 
     return info, elec_list # 這裡現在回傳兩個東西
             
@@ -179,23 +212,25 @@ def fetch_exact_data():
 
 # --- 3. 介面 ---
 st.title("📋 節能診斷自動化工具")
-data_pack = fetch_exact_data()
+
+# 只調用這一次
+info_result, elec_systems = fetch_exact_data()
 
 with st.expander("🔍 檢視/微調自動抓取資料"):
     ec1, ec2 = st.columns(2)
     with ec1:
-        v_comp = st.text_input("用戶名稱", data_pack["comp"])
-        v_area = st.text_input("總面積", data_pack["area"])
-        v_air = st.text_input("空調面積", data_pack["air_area"])
+        # 使用 info_result 內的資料
+        v_comp = st.text_input("用戶名稱", info_result["comp"])
+        v_area = st.text_input("總面積", info_result["area"])
+        v_air = st.text_input("空調面積", info_result["air_area"])
     with ec2:
-        v_emp = st.text_input("員工人數", data_pack["emp"])
-        v_hours = st.text_input("工作時數", data_pack["hours"])
+        v_emp = st.text_input("員工人數", info_result["emp"])
+        v_hours = st.text_input("工作時數", info_result["hours"])
 
-# 修改接收函數的方式
-data_pack, elec_systems = fetch_exact_data() 
+v_date = st.text_input("📅 診斷日期", info_result["date"])
 
-# ... 你截圖中的基本資料摺疊盒維持原樣 ...
-v_date = st.text_input("📅 診斷日期", data_pack["date"])
+# 電力系統 Tabs 保持你寫的那樣，但要補齊所有欄位 (單價, 需量等)
+# ... (這裡維持你截圖中 col1, col2, col3 的邏輯) ...
 
 st.markdown("### ⚡ 電力系統設備資料")
 # 根據電號數量產生標籤頁
@@ -212,7 +247,7 @@ if elec_systems:
             # ... 依此類推補完其他欄位 ...
 
 # --- 4. 封裝 Word 生成邏輯 ---
-def generate_docx():
+def generate_docx(comp, area, air, emp, hours, date, elecs):
     doc = Document()
     p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
     p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
@@ -233,7 +268,8 @@ def generate_docx():
     set_font_kai(p.add_run("小時，"))
     set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
-
+# 2. 循環生成多個電力表格
+for i, e in enumerate(elecs):
     doc.add_paragraph()
     set_font_kai(doc.add_paragraph().add_run("1.電力系統："), is_bold=True)
 
