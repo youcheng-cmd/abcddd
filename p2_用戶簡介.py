@@ -51,10 +51,7 @@ def fetch_exact_data():
                 id_match = re.search(r'\d{11}', p3_text.replace("-", ""))
                 if id_match: 
                     info["elec_id"] = id_match.group()
-            sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
-            if sheet_b:
-                df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
-               try:
+                try:
                     # 抓第 22 列 (索引 21) 的合計數據
                     row_total = df_p.iloc[21, :].tolist()
                     info["total_kwh"] = f"{int(float(row_total[12])):,d}" # M欄
@@ -64,6 +61,11 @@ def fetch_exact_data():
                     row_avg = df_p.iloc[22, :].tolist()
                     info["contract_cap"] = str(int(float(row_avg[3])))   # D欄
                     info["avg_pf"] = str(int(float(row_avg[14])))         # O欄
+            sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
+            if sheet_b:
+                df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
+               
+                   
                 except:
                     pass # 防止 Excel 格式不對時當掉
                 def get_near_value(items, keyword, min_val=0):
