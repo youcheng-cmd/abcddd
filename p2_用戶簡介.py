@@ -61,11 +61,13 @@ def fetch_exact_data():
                     row_avg = df_p.iloc[22, :].tolist()
                     info["contract_cap"] = str(int(float(row_avg[3])))   # D欄
                     info["avg_pf"] = str(int(float(row_avg[14])))         # O欄
+                except Exception as e:
+                    pass # 如果這張表格式不對，就跳過不抓，不讓程式當掉
+                # --- 電力抓取結束 ---
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
             if sheet_b:
                 df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
-               
-                   
+                                  
                 except:
                     pass # 防止 Excel 格式不對時當掉
                 def get_near_value(items, keyword, min_val=0):
