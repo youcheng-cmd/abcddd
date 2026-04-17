@@ -191,25 +191,25 @@ with st.expander("🔍 檢視/微調自動抓取資料"):
         v_emp = st.text_input("員工人數", data_pack["emp"])
         v_hours = st.text_input("工作時數", data_pack["hours"])
 
+# 修改接收函數的方式
+data_pack, elec_systems = fetch_exact_data() 
+
+# ... 你截圖中的基本資料摺疊盒維持原樣 ...
 v_date = st.text_input("📅 診斷日期", data_pack["date"])
 
-st.markdown("### ⚡ 電力系統資料")
-e_c1, e_c2, e_c3 = st.columns(3)
-with e_c1:
-    v_elec_id = st.text_input("台電電號", data_pack["elec_id"])
-    v_contract_type = st.text_input("契約型式", data_pack["contract_type"])
-    v_total_kwh = st.text_input("年總用電度", data_pack["total_kwh"])
-    v_avg_pf = st.text_input("平均功因", data_pack["avg_pf"])
-with e_c2:
-    v_contract_cap = st.text_input("契約容量 (kW)", data_pack["contract_cap"])
-    v_trans_cap = st.text_input("主變壓器容量 (kVA)", data_pack["trans_cap"])
-    v_total_fee = st.text_input("年總金額", data_pack["total_fee"])
-    v_peak_max = st.text_input("尖峰最高需量", data_pack["peak_max"])
-with e_c3:
-    v_volt = st.text_input("供電電壓 (kV)", data_pack["volt"])
-    v_cap_cap = st.text_input("電容器容量 (kVAR)", data_pack["cap_cap"])
-    v_avg_price = st.text_input("平均單價", data_pack["avg_price"])
-    v_offpeak_max = st.text_input("離峰最高需量", data_pack["offpeak_max"])
+st.markdown("### ⚡ 電力系統設備資料")
+# 根據電號數量產生標籤頁
+if elec_systems:
+    tabs = st.tabs([f"電號 {e['elec_id']}" for e in elec_systems])
+    for i, tab in enumerate(tabs):
+        with tab:
+            col1, col2, col3 = st.columns(3)
+            # 注意：這裡的變數要存回 elec_systems[i] 裡面，且 key 要唯一
+            elec_systems[i]['elec_id'] = col1.text_input("台電電號", elec_systems[i]['elec_id'], key=f"id_{i}")
+            elec_systems[i]['total_kwh'] = col1.text_input("年總用電度", elec_systems[i]['total_kwh'], key=f"kwh_{i}")
+            elec_systems[i]['contract_cap'] = col2.text_input("契約容量", elec_systems[i]['contract_cap'], key=f"cap_{i}")
+            elec_systems[i]['trans_cap'] = col2.text_input("主變壓器容量", elec_systems[i]['trans_cap'], key=f"trans_{i}")
+            # ... 依此類推補完其他欄位 ...
 
 # --- 4. 封裝 Word 生成邏輯 ---
 def generate_docx():
