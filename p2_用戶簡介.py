@@ -54,49 +54,55 @@ st.title("📋 能源用戶概述設定")
 d = fetch_all_data()
 
 # 讓使用者可以微調抓到的數字
-st.subheader("📝 內文數據微調")
-c1, c2, c3 = st.columns(3)
+# --- 生成第一段文字 ---
+st.subheader("📝 第一段：用戶簡介校對")
+intro_data = fetch_intro_data()
+
+# 介面讓你可以微調抓到的紅字
+c1, c2 = st.columns(2)
 with c1:
-    v_comp = st.text_input("公司名稱", d["comp"])
-    v_area = st.text_input("總面積", d["area"])
+    v_comp = st.text_input("用戶名稱", intro_data["comp"])
+    v_area = st.text_input("總面積", intro_data["area"])
+    v_air = st.text_input("空調面積", intro_data["air_area"])
 with c2:
-    v_air = st.text_input("空調面積", d["air_area"])
-    v_emp = st.text_input("人數", d["emp"])
-with c3:
-    v_hours = st.text_input("工作時數", d["hours"])
-    v_date = st.text_input("診斷日期", d["date"])
+    v_emp = st.text_input("員工人數", intro_data["emp"])
+    v_hours = st.text_input("工作時數", intro_data["hours"])
+    v_date = st.text_input("診斷日期", intro_data["date"])
 
-# --- 4. 生成 Word ---
-doc = Document()
+if st.download_button("💾 生成第一段報告並下載", ...): # 這裡放生成邏輯
+    doc = Document()
+    
+    # 標題 (黑色 14號 加粗)
+    p_title = doc.add_paragraph()
+    set_font_kai(p_title.add_run("二、能源用戶概述"), size=14, is_bold=True)
+    
+    p_subtitle = doc.add_paragraph()
+    set_font_kai(p_subtitle.add_run("  2-1. 用戶簡介"), size=14, is_bold=True)
 
-# --- 用戶簡介段落 ---
-doc.add_heading('', 1) # 二、能源用戶概述
-set_font_kai(doc.paragraphs[-1].add_run("二、能源用戶概述"), is_bold=True)
-
-p_intro = doc.add_paragraph()
-set_font_kai(p_intro.add_run("2-1. 用戶簡介"), is_bold=True)
-
-p_desc = doc.add_paragraph()
-# 凱格運動事業股份有限公司 (紅)
-set_font_kai(p_desc.add_run(v_comp), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 總建物面積 "))
-# 23,666 (紅)
-set_font_kai(p_desc.add_run(v_area), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 平方公尺，空調使用面積 "))
-# 20,353 (紅)
-set_font_kai(p_desc.add_run(v_air), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 平方公尺，能源使用主要以 "))
-set_font_kai(p_desc.add_run("電力"), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 為主，員工約有 "))
-# 48 (紅)
-set_font_kai(p_desc.add_run(v_emp), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 人，全年使用時間約 "))
-# 5,780 (紅)
-set_font_kai(p_desc.add_run(v_hours), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 小時，"))
-# 診斷日期 (紅)
-set_font_kai(p_desc.add_run(v_date), color=RGBColor(255, 0, 0))
-set_font_kai(p_desc.add_run(" 經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
+    # 第一段內文
+    p = doc.add_paragraph()
+    p.paragraph_format.first_line_indent = Pt(28) # 首行縮進 2 個字 (14pt*2)
+    
+    # 凱格運動事業股份有限公司 (紅)
+    set_font_kai(p.add_run(v_comp), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("總建物面積"), size=14)
+    # 面積 (紅)
+    set_font_kai(p.add_run(v_area), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("平方公尺，空調使用面積"), size=14)
+    # 空調面積 (紅)
+    set_font_kai(p.add_run(v_air), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("平方公尺，能源使用主要以"), size=14)
+    set_font_kai(p.add_run("電力"), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("為主，員工約有"), size=14)
+    # 員工數 (紅)
+    set_font_kai(p.add_run(v_emp), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("人，全年使用時間約"), size=14)
+    # 工作時數 (紅)
+    set_font_kai(p.add_run(v_hours), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("小時，"), size=14)
+    # 日期 (紅)
+    set_font_kai(p.add_run(v_date), size=14, color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："), size=14)
 
 # --- 1. 電力系統表格 (黑色 10 號) ---
 doc.add_paragraph()
