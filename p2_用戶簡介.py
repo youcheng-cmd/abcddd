@@ -16,7 +16,6 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 
 # --- 2. 數據抓取邏輯 ---
 def fetch_exact_data():
-    # 初始化資料，日期預設為 115年1月1日
     info = {"comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
@@ -24,7 +23,6 @@ def fetch_exact_data():
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # 1. 抓名稱 (包含 "五之二" 的表)
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
@@ -33,7 +31,6 @@ def fetch_exact_data():
                     if val != "nan":
                         info["comp"] = val.split('(')[0]
 
-            # 2. 抓數值 (包含 "三" 或 "基本資料" 的表)
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
             if sheet_b:
                 df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
@@ -56,26 +53,23 @@ def fetch_exact_data():
                 for r in range(len(df_b)):
                     row_list = list(df_b.iloc[r, :])
                     row_str = "".join([str(i) for i in row_list])
-                    
                     if "員工人數" in row_str:
-                        res = get_near_value(row_list, "員工人數")
+                        res = get_near_value(row_list, "員工人數"); 
                         if res: info["emp"] = res
                     if "全年工作時數" in row_str:
-                        res = get_near_value(row_list, "全年工作時數")
+                        res = get_near_value(row_list, "全年工作時數"); 
                         if res: info["hours"] = res
                     if "總樓地板面積" in row_str:
-                        res = get_near_value(row_list, "總樓地板面積", min_val=100)
+                        res = get_near_value(row_list, "總樓地板面積", min_val=100); 
                         if res: info["area"] = res
                     if "總空調使用面積" in row_str:
-                        res = get_near_value(row_list, "總空調使用面積", min_val=100)
+                        res = get_near_value(row_list, "總空調使用面積", min_val=100); 
                         if res: info["air_area"] = res
-
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
-            
     return info
 
-# --- 3. 介面 ---
+# --- 3. 介面佈局 ---
 st.title("📋 用戶簡介自動化")
 data_pack = fetch_exact_data()
 
@@ -87,15 +81,16 @@ with c1:
 with c2:
     v_emp = st.text_input("員工人數 (紅字4)", data_pack["emp"])
     v_hours = st.text_input("工作時數 (紅字5)", data_pack["hours"])
-    # 日期直接顯示，不帶標籤
     v_date = st.text_input("診斷日期 (紅字6)", data_pack["date"])
 
-# --- 4. 生成 Word 並下載 ---
-if st.button("📝 生成預覽並準備下載"):
+# --- 4. 封裝 Word 生成邏輯 ---
+def generate_docx():
     doc = Document()
+    # 標題
     p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
     p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
 
+    # 內文段落
     p = doc.add_paragraph()
     p.paragraph_format.first_line_indent = Pt(28)
     
@@ -112,15 +107,19 @@ if st.button("📝 生成預覽並準備下載"):
     set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("小時，"))
     
-    # 這裡只放 v_date，絕對乾淨
+    # 診斷日期 (純手動輸入內容)
     set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
 
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    st.download_button(
-        label="💾 下載用戶簡介 Word",
-        data=buffer.getvalue(),
-        file_name=f"能源用戶簡介_{v_comp}.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+    target_stream = io.BytesIO()
+    doc.save(target_stream)
+    return target_stream.getvalue()
+
+# --- 5. 一鍵下載按鈕 ---
+st.markdown("---")
+st.download_button(
+    label="💾 生成並下載用戶簡介 Word",
+    data=generate_docx(),  # 點擊時直接調用生成邏輯
+    file_name=f"能源用戶簡介_{v_comp}.docx",
+    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
