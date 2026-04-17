@@ -8,7 +8,7 @@ import io
 import re
 from collections import Counter
 # --- 【新增/檢查這一段】資料抓取邏輯 ---
-df = None
+raw_df = None
 raw_df = pd.read_excel(uploaded_file, sheet_name=target_sheet, header=None)
 # 1. 優先從全域暫存抓取檔案 (對應 app.py 的 global_excel)
 if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
