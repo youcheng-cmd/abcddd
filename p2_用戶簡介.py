@@ -17,40 +17,58 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 # --- 2. 修正版數據抓取邏輯 ---
 # --- 修正版：只抓用戶名字測試 ---
 def fetch_exact_data():
-    d = {"comp": "抓取中...", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年2月26日"}
+    info = {
+        "comp": "", # 沒抓到就留白，不要預設值
+        "area": "0", 
+        "air_area": "0", 
+        "emp": "0", 
+        "hours": "0", 
+        "date": "115年2月26日"
+    }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # 1. 鎖定「表五之二」
+            # --- 鎖定【表五之二】 ---
             p_sheet = next((s for s in xl.sheet_names if "五之二" in s), None)
             if p_sheet:
+                # 讀取整張表，不設標題
                 df_p = pd.read_excel(file, sheet_name=p_sheet, header=None)
                 
-                # 遍歷尋找「戶名」兩個字
+                # 開始地毯式搜尋「戶名」這兩個字
                 for r in range(len(df_p)):
                     for c in range(len(df_p.columns)):
-                        cell_val = str(df_p.iloc[r, c])
+                        cell_val = str(df_p.iloc[r, c]).replace(" ", "").replace("\n", "")
+                        
                         if "戶名" in cell_val:
-                            # 關鍵：從這格往右、往下搜尋非空白內容
-                            # 通常在右方一格 (c+1) 或右方兩格 (c+2)
-                            candidate = str(df_p.iloc[r+1, c]).strip() # 嘗試下方
-                            if candidate == "nan" or candidate == "":
-                                candidate = str(df_p.iloc[r+1, c+1]).strip() # 嘗試下右
-                                
-                            d["comp"] = candidate.split('(')[0].split('（')[0] # 去掉括號後綴
-                            break
+                            # 座標對接：根據截圖，名字通常在「戶名」標籤的【正下方】(r+1)
+                            # 但因為有合併儲存格，我們要往右掃描 (c 到 c+5) 找到第一個有字的人
+                            for target_c in range(c, c + 6):
+                                candidate = str(df_p.iloc[r + 1, target_c]).strip()
+                                if candidate != "nan" and candidate != "":
+                                    # 抓到了！去掉括號贅字
+                                    info["comp"] = candidate.split('(')[0].split('（')[0]
+                                    break
+                            break # 抓到名字就跳出迴圈
             
-            # 2. 面積與其他（先給預設值，避免格式化報錯）
-            d["area"] = "23666" 
-            d["air_area"] = "20353"
-            
+            # --- 鎖定【三、能源用戶基本資料】 (抓取其他數值) ---
+            b_sheet = next((s for s in xl.sheet_names if "能源用戶基本資料" in s), None)
+            if b_sheet:
+                df_b = pd.read_excel(file, sheet_name=b_sheet, header=None)
+                for r in range(len(df_b)):
+                    label = str(df_b.iloc[r, 1]) # 檢查 B 欄
+                    if "18.總樓地板面積" in label:
+                        info["area"] = str(df_b.iloc[r, 9]).strip() # J16
+                    if "19.總空調使用面積" in label:
+                        info["air_area"] = str(df_b.iloc[r, 3]).strip() # D17
+                    # 這裡先只修名字，如果你發現員工人數 (紅字4) 還是 0，等等我們再修它
+                        
         except Exception as e:
-            st.error(f"名字抓取失敗: {e}")
+            st.error(f"解析過程中發生錯誤: {e}")
             
-    return d
+    return info
 
 # --- 3. 介面 ---
 st.title("📋 用戶簡介自動化")
