@@ -110,8 +110,7 @@ with c2:
     v_emp = st.text_input("員工人數 (紅字4)", d["emp"])
     v_hours = st.text_input("工作時數 (紅字5)", d["hours"])
     # 這裡確保抓進來的變數已經清掉標籤，讓使用者手動填寫
-    v_date = st.text_input("診斷日期 (紅字6)", d["date"])
-
+    v_date = st.text_input("診斷日期 (紅字6)", clean_display_date)
 # --- 4. 生成 Word 並下載 ---
 doc = Document()
 
