@@ -17,61 +17,64 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 # --- 2. 修正版數據抓取邏輯 ---
 # --- 修正版：只抓用戶名字測試 ---
 def fetch_exact_data():
-    info = {"comp": "", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年2月26日"}
+    info = {
+        "comp": "", "area": "0", "air_area": "0", 
+        "emp": "0", "hours": "0", "date": "115年2月26日"
+    }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
-            # 1. 定位【表五之二】
-            p_sheet = next((s for s in xl.sheet_names if "五之二" in s), None)
-            if p_sheet:
-                df_p = pd.read_excel(file, sheet_name=p_sheet, header=None)
-                
-                for r in range(len(df_p)):
-                    for c in range(len(df_p.columns)):
-                        cell_val = str(df_p.iloc[r, c])
-                        
-                        # 找到「戶名」標籤
-                        if "戶名" in cell_val:
-                            # 關鍵修正：在「戶名」正下方那一列 (r+1)，往右搜尋 5 格
-                            # 這樣不論它是合併在 E, F 還是 G 欄，都能抓到
-                            for offset_c in range(0, 5):
-                                target_c = c + offset_c
-                                if target_c < len(df_p.columns):
-                                    candidate = str(df_p.iloc[r + 1, target_c]).strip()
-                                    if candidate != "nan" and candidate != "":
-                                        # 成功抓到「凱格運動事業股份有限公司」
-                                        # 同時過濾掉換行符號（因為 Excel 裡可能按了 Alt+Enter）
-                                        info["comp"] = candidate.replace("\n", "").split('(')[0]
+            # --- 1. 抓取用戶名稱 (掃描所有工作表) ---
+            # 有時候名字出現在表五之二，有時候在基本資料，我們全找一遍
+            for s_name in xl.sheet_names:
+                df_tmp = pd.read_excel(file, sheet_name=s_name, header=None)
+                for r in range(len(df_tmp)):
+                    for c in range(len(df_tmp.columns)):
+                        cell_str = str(df_tmp.iloc[r, c])
+                        # 如果看到「戶名」或「能源用戶名稱」
+                        if "戶名" in cell_str or "用戶名稱" in cell_str:
+                            # 檢查下方與右方共 6 格，抓第一個有字且不是 nan 的
+                            search_coords = [(r+1, c), (r+1, c+1), (r, c+1), (r, c+2)]
+                            for sr, sc in search_coords:
+                                if sr < len(df_tmp) and sc < len(df_tmp.columns):
+                                    candidate = str(df_tmp.iloc[sr, sc]).strip()
+                                    if candidate != "nan" and len(candidate) > 4: # 名字通常大於4格字
+                                        info["comp"] = candidate.split('(')[0].split('（')[0]
                                         break
-                            break 
-            
-            # 2. 定位【三、能源用戶基本資料】 (抓取面積、人數、工作時數)
-            # 這裡我們一個一個來檢視：
-            b_sheet = next((s for s in xl.sheet_names if "能源用戶基本資料" in s), None)
+                    if info["comp"]: break
+                if info["comp"]: break
+
+            # --- 2. 抓取面積、人數、工時 (針對基本資料表) ---
+            b_sheet = next((s for s in xl.sheet_names if "基本資料" in s), None)
             if b_sheet:
                 df_b = pd.read_excel(file, sheet_name=b_sheet, header=None)
                 for r in range(len(df_b)):
-                    label = str(df_b.iloc[r, 1]) # B 欄標籤
-                    
-                    # 紅字 4：員工人數 (J15) -> Python 索引 [r, 9]
-                    if "16.員工人數" in label:
-                        info["emp"] = str(df_b.iloc[r, 9]).strip()
-                    
-                    # 紅字 5：全年工作時數 (D16) -> Python 索引 [r, 3]
-                    if "17.全年工作時數" in label:
-                        info["hours"] = str(df_b.iloc[r, 3]).replace(".0", "").strip()
+                    for c in range(len(df_b.columns)):
+                        val = str(df_b.iloc[r, c])
                         
-                    # 面積部分 (J16 與 D17)
-                    if "18.總樓地板面積" in label:
-                        info["area"] = str(df_b.iloc[r, 9]).strip()
-                    if "19.總空調使用面積" in label:
-                        info["air_area"] = str(df_b.iloc[r, 3]).strip()
+                        # 員工人數 (找關鍵字 "16." 或 "員工人數")
+                        if "員工人數" in val:
+                            info["emp"] = str(df_b.iloc[r, c+1]).strip()
+                        
+                        # 總面積 (找關鍵字 "18." 或 "總樓地板面積")
+                        if "總樓地板面積" in val:
+                            info["area"] = str(df_b.iloc[r, c+1]).strip()
+
+                        # 全年工作時數 (找關鍵字 "17." 或 "工作時數")
+                        if "工作時數" in val:
+                            # 數字可能在右方 c+1
+                            res = str(df_b.iloc[r, c+1]).replace("小時", "").strip()
+                            info["hours"] = res if res != "nan" else "0"
 
         except Exception as e:
-            st.error(f"抓取失敗: {e}")
+            st.error(f"解析失敗: {e}")
+            
+    # 清理所有 nan 或空白
+    for k in info:
+        if info[k] == "nan" or not info[k]: info[k] = "0" if k != "comp" else ""
             
     return info
 
