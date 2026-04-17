@@ -22,50 +22,44 @@ def fetch_exact_data():
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
             file = st.session_state['global_excel']
-            # 使用 header=None 確保座標從 0,0 開始，完全對應 Excel 
-            df_b = pd.read_excel(file, sheet_name="三、能源用戶基本資料", header=None)
-            df_p = pd.read_excel(file, sheet_name="表五之二、電能使用量統計表", header=None)
-
-            # --- 1. 用戶名稱 (直接鎖定 表五之二 的 B1 格) ---
-            # Excel B1 在 pandas iloc 是 [0, 1]
-            raw_comp = str(df_p.iloc[5, 4]).strip()
+            xl = pd.ExcelFile(file)
             
-            # 這裡做一點簡單清理：去掉 "nan" 或可能存在的換行
-            if raw_comp != "nan" and raw_comp != "":
-                # 如果 B1 內容太長包含 "表五之二..."，你可能需要用 .replace 或 .split
-                # 這裡假設 B1 裡面的字就是你要的名字
-                info["comp"] = raw_comp.replace("\n", "").split('(')[0]
+            # 1. 抓取基本資料表 (模糊匹配)
+            sheet_b = next((s for s in xl.sheet_names if "基本資料" in s), "三、能源用戶基本資料")
+            df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
+            
+            # 2. 抓取電能統計表 (模糊匹配：解決 Worksheet not found 的元兇)
+            sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
+            
+            if sheet_p:
+                df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
+                # 抓取 E6 (索引 [5, 4])
+                raw_comp = str(df_p.iloc[5, 4]).strip()
+                if raw_comp != "nan" and raw_comp != "":
+                    info["comp"] = raw_comp.replace("\n", "").split('(')[0]
+                else:
+                    info["comp"] = "E6格是空的"
             else:
-                info["comp"] = "未抓到名稱"
+                info["comp"] = "找不到表五之二"
 
-            # --- 2. 員工人數 (鎖定：基本資料 J15 或 L15 附近) ---
-            # 依據你之前的截圖，J15 是資料，Python 索引是 [14, 9]
-            # 這裡保留你原本搜尋關鍵字的邏輯，因為比較安全
+            # --- 以下維持你原本的邏輯 ---
             for r in range(13, 17): 
                 row_str = "".join(map(str, df_b.iloc[r, :]))
                 if "員工人數" in row_str:
-                    # 如果 L15 有值就抓 L15 (索引 11)，否則抓 J15 (索引 9)
                     val_j = str(df_b.iloc[r, 9]).strip()
                     val_l = str(df_b.iloc[r, 11]).strip()
                     info["emp"] = val_l if val_l != "nan" else val_j
                     info["emp"] = info["emp"].replace(".0", "")
 
-            # --- 3. 工作時數 (鎖定：基本資料 D16 -> [15, 3]) ---
             info["hours"] = str(df_b.iloc[15, 3]).replace(".0", "").strip()
-
-            # --- 4. 總面積 (鎖定：基本資料 L16 -> [15, 11]) ---
             info["area"] = str(df_b.iloc[15, 11]).strip()
-
-            # --- 5. 空調面積 (鎖定：基本資料 D17 -> [16, 3]) ---
             info["air_area"] = str(df_b.iloc[16, 3]).strip()
-
-            # --- 6. 診斷日期 (鎖定：基本資料 I3 -> [2, 8]) ---
             info["date"] = str(df_b.iloc[2, 8]).replace("填表日期：", "").strip()
 
         except Exception as e:
-            st.error(f"座標解析錯誤: {e}")
+            st.error(f"解析發生錯誤: {e}")
             
-    # 最後檢查：清理 nan 確保畫面不難看
+    # 清理數據
     for k in info:
         if info[k] == "nan" or not info[k]: 
             info[k] = "0" if k != "comp" else "未抓到名稱"
