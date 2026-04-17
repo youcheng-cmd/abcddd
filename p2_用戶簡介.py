@@ -36,7 +36,7 @@ def fetch_exact_data():
                 # 台電電號 C6 (索引 5, 2)
                 info["elec_id"] = str(df_p.iloc[5, 2]).strip()
                 
-                # 契約容量 C10 (索引 9, 2) -> 這裡通常 1-12 月都一樣，抓一月份的
+                # 契約容量 C10 (索引 9, 2)
                 try: info["contract_cap"] = str(int(float(df_p.iloc[9, 2])))
                 except: pass
 
@@ -46,7 +46,7 @@ def fetch_exact_data():
                     info["total_kwh"] = f"{int(kwh):,d}"
                 except: kwh = 0
 
-                # 年總金額 O22 (索引 21, 14) -> 截圖顯示總電費在 O 或 P，依座標 O22 為準
+                # 年總金額 O22 (索引 21, 14)
                 try: 
                     fee = float(df_p.iloc[21, 14])
                     info["total_fee"] = f"{int(fee):,d}"
@@ -56,45 +56,45 @@ def fetch_exact_data():
                 if kwh > 0 and fee > 0:
                     info["avg_price"] = str(round(fee / kwh, 2))
 
-                # 平均功因 N23 (索引 22, 13) -> 截圖中「平均」那一列的功因欄位
+                # 平均功因 N23 (索引 22, 13)
                 try: info["avg_pf"] = str(int(float(df_p.iloc[22, 13])))
                 except: pass
 
-                # 需量抓取 (掃描 E~H 欄的 1~12月數字)
-                peak_list = []
-                off_list = []
-                for r in range(9, 21): # 10~21列
-                    try:
-                        # 尖峰 (E, F, G 欄)
-                        for c in [4, 5, 6]:
-                            v = df_p.iloc[r, c]
-                            if pd.notnull(v) and str(v).strip() not in ["-", "0", "0.0"]:
-                                peak_list.append(float(v))
-                        # 離峰 (H 欄)
-                        v_off = df_p.iloc[r, 7]
-                        if pd.notnull(v_off) and str(v_off).strip() not in ["-", "0", "0.0"]:
-                            off_list.append(float(v_off))
-                    except: continue
-                if peak_list: info["peak_max"] = str(int(max(peak_list)))
-                if off_list: info["offpeak_max"] = str(int(max(off_list)))
+                # --- 需量精準抓取 ---
+                # 尖峰最高需量 D10~D21 (索引 9~20, 欄 3)
+                try:
+                    peak_vals = [float(df_p.iloc[r, 3]) for r in range(9, 21) if pd.notnull(df_p.iloc[r, 3]) and str(df_p.iloc[r, 3]).strip() not in ["-", "0", "0.0"]]
+                    if peak_vals: info["peak_max"] = str(int(max(peak_vals)))
+                except: pass
 
-            # --- 2. 處理「表八」(主變壓器容量加總、電容器容量累加) ---
+                # 離峰最高需量 G10~G21 (索引 9~20, 欄 6)
+                try:
+                    off_vals = [float(df_p.iloc[r, 6]) for r in range(9, 21) if pd.notnull(df_p.iloc[r, 6]) and str(df_p.iloc[r, 6]).strip() not in ["-", "0", "0.0"]]
+                    if off_vals: info["offpeak_max"] = str(int(max(off_vals)))
+                except: pass
+
+            # --- 2. 處理「表八」(變壓器總和、電容器總和) ---
             sheet_8 = next((s for s in xl.sheet_names if "八" in s), None)
             if sheet_8:
                 df_8 = pd.read_excel(file, sheet_name=sheet_8, header=None)
+                
+                # 變壓器容量總和：第 8 列 (索引 7)，從 F 欄 (索引 5) 往後掃描
                 try:
-                    # 主變壓器容量加總 (第 8 列，從 F 欄開始往後)
                     t_sum = 0
-                    for col in range(5, 15): # 掃描 F 到 N 欄
+                    for col in range(5, len(df_8.columns)):
                         v = df_8.iloc[7, col]
-                        if pd.notnull(v) and isinstance(v, (int, float)): t_sum += v
+                        if pd.notnull(v) and isinstance(v, (int, float)):
+                            t_sum += v
                     info["trans_cap"] = f"{int(t_sum):,d}"
+                except: pass
 
-                    # 電容器容量累加 (第 23 列「裝置電容器容量」，從 F 欄開始往後)
+                # 電容器容量總和：第 23 列 (索引 22)，從 F 欄 (索引 5) 往後掃描
+                try:
                     cap_sum = 0
-                    for col in range(5, 15): # 掃描 F 到 N 欄
-                        v = df_8.iloc[22, col] # 第 23 列索引為 22
-                        if pd.notnull(v) and isinstance(v, (int, float)): cap_sum += v
+                    for col in range(5, len(df_8.columns)):
+                        v = df_8.iloc[22, col]
+                        if pd.notnull(v) and isinstance(v, (int, float)):
+                            cap_sum += v
                     info["cap_cap"] = str(int(cap_sum))
                 except: pass
 
