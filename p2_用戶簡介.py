@@ -39,31 +39,47 @@ def fetch_exact_data():
                 id_match = re.search(r'\d{11}', p3_val.replace("-", ""))
                 if id_match: info["elec_id"] = id_match.group()
 
-                # 2. 遍歷每一列，尋找「合計」與「平均」
+               # 2. 遍歷每一列，尋找「合計」與「平均」
                 for r_idx in range(len(df_p)):
                     row_list = df_p.iloc[r_idx, :].tolist()
                     row_str = "".join([str(x) for x in row_list])
                     
+                    # 檢查這一列的長度，確保至少有 16 欄 (索引到 15)
+                    row_len = len(row_list)
+
                     if "合計" in row_str:
-                        # 度數合計：在 M 欄 (索引 12)
-                        val_kwh = row_list[12]
-                        if pd.notnull(val_kwh):
-                            info["total_kwh"] = f"{int(float(val_kwh)):,d}"
-                        # 總電費：在 P 欄 (索引 15)
-                        val_fee = row_list[15]
-                        if pd.notnull(val_fee):
-                            info["total_fee"] = f"{int(float(val_fee)):,d}"
+                        # 度數合計：索引 12 (第 13 欄)
+                        if row_len > 12:
+                            val_kwh = row_list[12]
+                            if pd.notnull(val_kwh) and str(val_kwh).strip() != "-":
+                                try: info["total_kwh"] = f"{int(float(val_kwh)):,d}"
+                                except: pass
+                        # 總電費：索引 15 (第 16 欄)
+                        if row_len > 15:
+                            val_fee = row_list[15]
+                            if pd.notnull(val_fee) and str(val_fee).strip() != "-":
+                                try: info["total_fee"] = f"{int(float(val_fee)):,d}"
+                                except: pass
 
                     if "平均" in row_str:
-                        # 契約容量：在 D 欄 (索引 3)
-                        if pd.notnull(row_list[3]):
-                            info["contract_cap"] = str(int(float(row_list[3])))
-                        # 平均功因：在 O 欄 (索引 14)
-                        if pd.notnull(row_list[14]):
-                            info["avg_pf"] = str(int(float(row_list[14])))
-                        # 平均單價：在 P 欄 (索引 15)
-                        if pd.notnull(row_list[15]):
-                            info["avg_price"] = str(round(float(row_list[15]), 2))
+                        # 契約容量：索引 3
+                        if row_len > 3:
+                            val_cap = row_list[3]
+                            if pd.notnull(val_cap) and str(val_cap).strip() != "-":
+                                try: info["contract_cap"] = str(int(float(val_cap)))
+                                except: pass
+                        # 平均功因：索引 14
+                        if row_len > 14:
+                            val_pf = row_list[14]
+                            if pd.notnull(val_pf) and str(val_pf).strip() != "-":
+                                try: info["avg_pf"] = str(int(float(val_pf)))
+                                except: pass
+                        # 平均單價：索引 15
+                        if row_len > 15:
+                            val_pr = row_list[15]
+                            if pd.notnull(val_pr) and str(val_pr).strip() != "-":
+                                try: info["avg_price"] = str(round(float(val_pr), 2))
+                                except: pass
 
                 # 3. 抓最高需量 (掃描 E~H 欄的所有月份數字，找最大值)
                 # 需量範圍約在第 10 列到 21 列 (索引 9~20)，欄位 E, F, G, H (索引 4, 5, 6, 7)
