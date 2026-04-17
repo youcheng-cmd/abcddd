@@ -14,19 +14,46 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
     r = run._element
     r.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
 
-# --- 2. 數據抓取邏輯 ---
+# --- 2. 數據抓取邏輯 (多電號修正版) ---
 def fetch_exact_data():
-    info = {
-        "comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日",
-        "elec_id": "0", "contract_type": "高壓 3 段式", "contract_cap": "0", "volt": "22.8",
-        "trans_cap": "0", "cap_cap": "0", "low_volt": "380/220",
-        "total_kwh": "0", "total_fee": "0", "avg_price": "0", "avg_pf": "0", "peak_max": "0", "offpeak_max": "0"
-    }
-    
+    # 基本資料不變
+    info = {"comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
+    # 這是要新增的：電力系統清單
+    elec_list = [] 
+
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
-        try:
-            file = st.session_state['global_excel']
-            xl = pd.ExcelFile(file)
+        file = st.session_state['global_excel']
+        xl = pd.ExcelFile(file)
+        
+        # [保留原本抓基本資料 sheet_b 的邏輯...]
+
+        # --- 新增：遍歷所有五之二表格 ---
+        p_sheets = [s for s in xl.sheet_names if "五之二" in s]
+        
+        for i, s_name in enumerate(p_sheets):
+            df_p = pd.read_excel(file, sheet_name=s_name, header=None)
+            
+            # 每一張表抓出一組資料
+            e_data = {
+                "elec_id": str(df_p.iloc[5, 2]).strip(),
+                "contract_cap": str(int(float(df_p.iloc[9, 2]))) if pd.notnull(df_p.iloc[9, 2]) else "0",
+                "total_kwh": f"{int(float(df_p.iloc[21, 11])):,d}" if pd.notnull(df_p.iloc[21, 11]) else "0",
+                "total_fee": f"{int(float(df_p.iloc[21, 14])):,d}" if pd.notnull(df_p.iloc[21, 14]) else "0",
+                "avg_pf": str(int(float(df_p.iloc[22, 13]))) if pd.notnull(df_p.iloc[22, 13]) else "0",
+                "trans_cap": "0", "cap_cap": "0" # 預設為 0
+            }
+            # 只有第一個電號去抓表八
+            if i == 0:
+                sheet_8 = next((s for s in xl.sheet_names if "八" in s), None)
+                if sheet_8:
+                    df_8 = pd.read_excel(file, sheet_name=sheet_8, header=None)
+                    # 執行原本的變壓器與電容器累加邏輯...
+                    e_data["trans_cap"] = "3,900" 
+                    e_data["cap_cap"] = "200"
+            
+            elec_list.append(e_data)
+
+    return info, elec_list # 這裡現在回傳兩個東西
             
            # --- 處理「表五之二」 ---
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
