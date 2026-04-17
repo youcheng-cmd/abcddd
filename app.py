@@ -21,7 +21,7 @@ st.sidebar.subheader("📂 全域資料庫 (全部工作表)")
 uploaded_global = st.sidebar.file_uploader(
     "上傳完整能源查核 Excel", 
     type=["xlsx"], 
-    key="global_ptr"
+    key="global_excel"
 )
 
 if uploaded_global:
