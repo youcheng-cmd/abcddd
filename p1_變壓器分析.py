@@ -91,11 +91,8 @@ def extract_number(text):
     nums = re.findall(r"[-+]?\d*\.\d+|\d+", s)
     return float(nums[0]) if nums else 0.0
 
-excel_file = st.file_uploader("請上傳您的 Excel 檔案", type=["xlsx"])
-
 if excel_file:
     # 讀取 Excel
-    raw_df = pd.read_excel(excel_file, sheet_name=0, header=None)
     all_transformer_data = []
     seen_sn = set() # 儲存已抓取的變壓器編號
 
