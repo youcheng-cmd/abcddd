@@ -7,6 +7,36 @@ from docx.oxml.ns import qn
 import io
 import re
 from collections import Counter
+# --- 【新增/檢查這一段】資料抓取邏輯 ---
+df = None
+
+# 1. 優先從全域暫存抓取檔案 (對應 app.py 的 global_excel)
+if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
+    try:
+        # 讀取全域檔案中的「表八」工作表
+        uploaded_file = st.session_state['global_excel']
+        xl = pd.ExcelFile(uploaded_file)
+        
+        # 判斷裡面有沒有「八、電能系統資料」或「表八」
+        target_sheet = None
+        for s in xl.sheet_names:
+            if "表八" in s or "電能系統資料" in s:
+                target_sheet = s
+                break
+        
+        if target_sheet:
+            df = pd.read_excel(uploaded_file, sheet_name=target_sheet)
+            st.info(f"💡 已自動從全域檔案抓取：{target_sheet}")
+    except Exception as e:
+        st.warning(f"全域檔案讀取失敗，請手動上傳：{e}")
+
+# 2. 如果全域沒檔案，才顯示本頁的上傳框
+if df is None:
+    uploaded_file = st.file_uploader("請上傳您的 Excel 檔案 (包含表八)", type=["xlsx"])
+    if uploaded_file:
+        df = pd.read_excel(uploaded_file) # 這裡預設讀取第一張表
+
+# --- 以下接原本的 AMT_SPECS 資料庫與後續計算 ---
 # --- 這裡放資料庫 ---
 AMT_SPECS = {
     100: [49, 0.07, 1.15],
