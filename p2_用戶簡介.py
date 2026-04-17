@@ -123,25 +123,23 @@ if elec_systems:
             # ... 依此類推補完其他欄位 ...
 
 # --- 4. 封裝 Word 生成邏輯 ---
-def generate_docx(comp, area, air, emp, hours, date, elecs):
+def generate_docx(comp, area, air, emp, hours, date, elecs): # 這裡收到的名字
     doc = Document()
-    p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
-    p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
+    # ... (標題省略) ...
 
     p = doc.add_paragraph()
     p.paragraph_format.first_line_indent = Pt(28)
-    # 注意這裡：要用傳進來的變數名稱
-    set_font_kai(p.add_run(comp), color=RGBColor(255, 0, 0))
+    
+    # 【關鍵修正：這裡要用 comp 而不是 v_comp，用 area 而不是 v_area】
+    set_font_kai(p.add_run(comp), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("總建物面積"))
-    set_font_kai(p.add_run(area), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(area), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("平方公尺，空調使用面積"))
-    set_font_kai(p.add_run(air), color=RGBColor(255, 0, 0))
-    set_font_kai(p.add_run("平方公尺，能源使用主要以"))
-    set_font_kai(p.add_run("電力"), color=RGBColor(255, 0, 0))
-    set_font_kai(p.add_run("為主，員工約有"))
-    set_font_kai(p.add_run(emp), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(air), color=RGBColor(255, 0, 0)) 
+    set_font_kai(p.add_run("平方公尺，能源使用主要以電力為主，員工約有"))
+    set_font_kai(p.add_run(emp), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("人，全年使用時間約"))
-    set_font_kai(p.add_run(hours), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(hours), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("小時，"))
     set_font_kai(p.add_run(date), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
