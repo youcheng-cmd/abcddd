@@ -25,7 +25,6 @@ uploaded_global = st.sidebar.file_uploader(
 )
 
 if uploaded_global:
-    st.session_state['global_excel'] = uploaded_global
     st.sidebar.success("✅ 全域檔案已就緒")
 
 st.sidebar.markdown("---")
