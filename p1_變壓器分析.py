@@ -59,7 +59,6 @@ def get_best_amt_cap(old_cap, current_load_factor):
             return cap
     return old_cap if old_cap in AMT_SPECS else min(AMT_SPECS.keys(), key=lambda x:abs(x-old_cap))
 
-st.set_page_config(page_title="變壓器節能分析系統", layout="wide")
 st.title("📑 變壓器自動化分析報告 (數量精確版)")
 
 # --- 1. 側邊欄參數設定 ---
