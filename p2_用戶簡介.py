@@ -16,7 +16,23 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 
 # --- 2. 數據抓取邏輯 ---
 def fetch_exact_data():
-    info = {"comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
+    info = {
+        "comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日",
+        # --- 電力系統新欄位 ---
+        "elec_id": "0",          # 台電電號
+        "contract_type": "高壓 3 段式", # 契約型式
+        "contract_cap": "0",     # 契約容量
+        "volt": "22.8",          # 供電電壓
+        "trans_cap": "0",        # 變壓器容量
+        "cap_cap": "0",          # 電容器容量
+        "low_volt": "380/220",   # 低壓側電壓
+        "total_kwh": "0",        # 年總用電度
+        "total_fee": "0",        # 年總金額
+        "avg_price": "0",        # 平均單價
+        "avg_pf": "0",           # 平均功因
+        "peak_max": "0",         # 尖峰最高需量
+        "offpeak_max": "0"       # 離峰最高需量
+    }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
