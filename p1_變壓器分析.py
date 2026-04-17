@@ -418,3 +418,10 @@ if 'report_warehouse' in st.session_state:
     st.session_state['report_warehouse']["1. 變壓器分析報告"] = report_data
 
 st.success("✅ 變壓器報告已生成！您可以在左側側邊欄打包下載。")
+# 提供單份報告下載按鈕 (確保這兩行也完全靠左)
+st.download_button(
+    label="💾 下載此份變壓器報告",
+    data=report_data,
+    file_name="變壓器汰換效益分析.docx",
+    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
