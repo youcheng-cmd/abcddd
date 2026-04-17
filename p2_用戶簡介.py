@@ -15,43 +15,40 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
     r.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
 
 # --- 2. 強化版數據抓取 ---
-def fetch_all_data():
-    # 初始化所有紅字變數的預設值
-    data = {
-        "comp": "凱格運動事業", "area": "0", "air_area": "0", "emp": "0", "hours": "0",
-        "date": "115年1月21日", "cid": "000000000", "type": "高壓3段式", "contract": "0",
-        "kv": "22.8", "tr_cap": "0", "cap_cap": "0", "v_type": "380/220",
-        "kwh": "0", "money": "0", "avg_price": "0", "pf": "0", "peak": "0", "off_peak": "0"
+def fetch_intro_data():
+    # 預設值 (凱格範例)
+    d = {
+        "comp": "能源用戶名稱", "area": "0", "air_area": "0", 
+        "emp": "0", "hours": "0", "date": "115年2月26日"
     }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
             file = st.session_state['global_excel']
-            # 讀取基本資料表
-            df_basic = pd.read_excel(file, sheet_name="三、能源用戶基本資料", header=None)
-            # 讀取電費統計表 (假設名稱包含五之二)
-            xl = pd.ExcelFile(file)
-            p_sheet = next((s for s in xl.sheet_names if "五之二" in s), xl.sheet_names[0])
-            df_power = pd.read_excel(file, sheet_name=p_sheet, header=None)
-
-            # 定位抓取 (這裡示範關鍵字抓取)
-            for r in range(len(df_basic)):
-                row_str = "".join(map(str, df_basic.iloc[r, :]))
-                if "能源用戶名稱" in row_str: data["comp"] = str(df_basic.iloc[r, 3]).split('(')[0]
-                if "總樓地板面積" in row_str: data["area"] = f"{df_basic.iloc[r, 11]:,.0f}"
-                if "總空調使用面積" in row_str: data["air_area"] = f"{df_basic.iloc[r, 3]:,.0f}"
-                if "員工人數" in row_str: data["emp"] = str(df_basic.iloc[r, 11])
-                if "全年工作時數" in row_str: data["hours"] = f"{df_basic.iloc[r, 3]:,.0f}"
+            # 讀取「三、能源用戶基本資料」
+            df = pd.read_excel(file, sheet_name="三、能源用戶基本資料", header=None)
             
-            # 電力系統數據 (從表五之二抓取最後一列的合計/平均)
-            data["cid"] = str(df_power.iloc[5, 2]) # 範例座標
-            data["kwh"] = f"{df_power.iloc[21, 11]:,.0f}"
-            data["money"] = f"{df_power.iloc[21, 14]:,.0f}"
-            data["avg_price"] = f"{df_power.iloc[22, 14]:.2f}"
+            # 定位掃描
+            for r in range(len(df)):
+                row_val = str(df.iloc[r, 1]) # 檢查 B 欄標籤
+                if "01.總公司名稱" in row_val:
+                    d["comp"] = str(df.iloc[r, 3]).strip() # D5
+                if "16.員工人數" in row_val:
+                    d["emp"] = str(df.iloc[r, 9]).strip() # J15
+                if "17.全年工作時數" in row_val:
+                    d["hours"] = str(df.iloc[r, 3]).replace(".0", "").strip() # D16
+                if "18.總樓地板面積" in row_val:
+                    d["area"] = f"{df.iloc[r, 9]:,.0f}" # J16
+                if "19.總空調使用面積" in row_val:
+                    d["air_area"] = f"{df.iloc[r, 3]:,.0f}" # D17
             
-        except: pass
-    return data
+            # 抓取填表日期作為診斷日期 (I3)
+            date_val = str(df.iloc[2, 8]) 
+            if "年" in date_val: d["date"] = date_val.replace("填表日期：", "").strip()
 
+        except Exception as e:
+            st.error(f"第一段資料抓取失敗: {e}")
+    return d
 # --- 3. 介面 ---
 st.title("📋 能源用戶概述設定")
 d = fetch_all_data()
