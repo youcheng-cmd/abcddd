@@ -123,13 +123,14 @@ with e_c3:
     v_avg_price = st.text_input("平均單價", data_pack["avg_price"])
     v_offpeak_max = st.text_input("離峰最高需量", data_pack["offpeak_max"])
 # --- 4. 封裝 Word 生成邏輯 ---
+# --- 4. 封裝 Word 生成邏輯 ---
 def generate_docx():
     doc = Document()
-    # 標題
+    # 1. 標題
     p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
     p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
 
-    # 內文段落
+    # 2. 內文段落
     p = doc.add_paragraph()
     p.paragraph_format.first_line_indent = Pt(28)
     
@@ -146,14 +147,57 @@ def generate_docx():
     set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("小時，"))
     
-    # 診斷日期 (純手動輸入內容)
     set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
+
+    # --- 3. 電力系統表格 (5x3) ---
+    doc.add_paragraph() # 空一行
+    p_elec = doc.add_paragraph()
+    set_font_kai(p_elec.add_run("1.電力系統："), is_bold=True)
+
+    # 建立 5 列 3 欄的表格
+    table = doc.add_table(rows=5, cols=3)
+    table.style = 'Table Grid' # 設定格線樣式
+
+    # --- 第一列：台電電號 (合併 3 欄) ---
+    cell_id = table.cell(0, 0)
+    cell_id.merge(table.cell(0, 2))
+    p_id = cell_id.paragraphs[0]
+    set_font_kai(p_id.add_run("台電電號："), size=12)
+    set_font_kai(p_id.add_run(v_elec_id), size=12, color=RGBColor(255, 0, 0))
+
+    # --- 第二列：契約型式、容量、供電電壓 ---
+    r1 = table.rows[1].cells
+    set_font_kai(r1[0].paragraphs[0].add_run(f"契約型式：{v_contract_type}"), size=12)
+    set_font_kai(r1[1].paragraphs[0].add_run(f"契約容量：{v_contract_cap} [kW]"), size=12)
+    set_font_kai(r1[2].paragraphs[0].add_run(f"台電供電電壓：{v_volt} [kV]"), size=12)
+
+    # --- 第三列：變壓器、電容器、低壓側 ---
+    r2 = table.rows[2].cells
+    set_font_kai(r2[0].paragraphs[0].add_run(f"主變壓器總裝置容量：{v_trans_cap} [kVA]"), size=12)
+    set_font_kai(r2[1].paragraphs[0].add_run(f"電容器裝置容量：{v_cap_cap} [kVAR]"), size=12)
+    set_font_kai(r2[2].paragraphs[0].add_run(f"低壓側電壓：380/220 [V]"), size=12)
+
+    # --- 第四列：年總度數、年總金額、平均單價 ---
+    r3 = table.rows[3].cells
+    set_font_kai(r3[0].paragraphs[0].add_run(f"年總用電度：{v_total_kwh} [kWh]"), size=12)
+    set_font_kai(r3[1].paragraphs[0].add_run(f"年總金額：{v_total_fee} [元]"), size=12)
+    set_font_kai(r3[2].paragraphs[0].add_run(f"平均單價：{v_avg_price} [元/kWh]"), size=12)
+
+    # --- 第五列：平均功因、尖峰需量、離峰需量 ---
+    r4 = table.rows[4].cells
+    set_font_kai(r4[0].paragraphs[0].add_run(f"平均功因：{v_avg_pf} [%]"), size=12)
+    set_font_kai(r4[1].paragraphs[0].add_run(f"尖峰最高需量：{v_peak_max} [kW]"), size=12)
+    set_font_kai(r4[2].paragraphs[0].add_run(f"離峰最高需量：{v_offpeak_max} [kW]"), size=12)
+
+    # 統一將表格內容垂直置中
+    for row in table.rows:
+        for cell in row.cells:
+            cell.vertical_alignment = 1
 
     target_stream = io.BytesIO()
     doc.save(target_stream)
     return target_stream.getvalue()
-
 # --- 5. 一鍵下載按鈕 ---
 st.markdown("---")
 st.download_button(
