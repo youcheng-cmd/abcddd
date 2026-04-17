@@ -79,19 +79,25 @@ def fetch_exact_data():
                         res = get_near_value(row_list, "總空調使用面積", min_val=100)
                         if res: info["air_area"] = res
                     
-                    if "輔導日期" in row_str:
+                   if "填表日期" in row_str:
                         for item in reversed(row_list):
                             if item and "年" in str(item):
-                                info["date"] = str(item).replace("輔導日期：", "").strip()
+                                # 這裡多加一個 .replace("填表日期：", "") 確保變數乾淨
+                                info["date"] = str(item).replace("填表日期：", "").replace(" ", "").strip()
                                 break
 
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
             
     # 清理數據
+   # 最後清理資料
     for k in info:
         if "nan" in str(info[k]).lower() or not str(info[k]).strip():
-            info[k] = "0" if k != "comp" else "未抓到名稱"
+            # 針對 date 設定特定預設值
+            if k == "date":
+                info[k] = "115年1月1日"
+            else:
+                info[k] = "0" if k != "comp" else "未抓到名稱"
             
     return info
 
@@ -107,7 +113,13 @@ with c1:
 with c2:
     v_emp = st.text_input("員工人數 (紅字4)", d["emp"])
     v_hours = st.text_input("工作時數 (紅字5)", d["hours"])
-    v_date = st.text_input("診斷日期 (紅字6)", d["date"])
+    # 這裡加一個 .replace 確保從 Excel 抓過來的日期不會帶有「填表日期：」
+# 並且如果抓到的是空的，就顯示 115年1月1日
+display_date = d["date"].replace("填表日期：", "").strip()
+if not display_date or display_date == "0":
+    display_date = "115年1月1日"
+
+v_date = st.text_input("診斷日期 (紅字6)", display_date)
 
 # --- 4. 生成 Word 並下載 ---
 doc = Document()
@@ -133,7 +145,9 @@ set_font_kai(p.add_run(v_emp), color=RGBColor(255, 0, 0)) # 紅
 set_font_kai(p.add_run("人，全年使用時間約"))
 set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0)) # 紅
 set_font_kai(p.add_run("小時，"))
-set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) # 紅
+# 使用 .replace 強制刪除變數中可能帶有的「填表日期：」字樣
+clean_date = v_date.replace("填表日期：", "").strip()
+set_font_kai(p.add_run(clean_date), color=RGBColor(255, 0, 0)) # 紅
 set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
 
 # --- 生成下載按鈕 ---
