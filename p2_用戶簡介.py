@@ -18,20 +18,9 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 def fetch_exact_data():
     info = {
         "comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日",
-        # --- 電力系統新欄位 ---
-        "elec_id": "0",          # 台電電號
-        "contract_type": "高壓 3 段式", # 契約型式
-        "contract_cap": "0",     # 契約容量
-        "volt": "22.8",          # 供電電壓
-        "trans_cap": "0",        # 變壓器容量
-        "cap_cap": "0",          # 電容器容量
-        "low_volt": "380/220",   # 低壓側電壓
-        "total_kwh": "0",        # 年總用電度
-        "total_fee": "0",        # 年總金額
-        "avg_price": "0",        # 平均單價
-        "avg_pf": "0",           # 平均功因
-        "peak_max": "0",         # 尖峰最高需量
-        "offpeak_max": "0"       # 離峰最高需量
+        "elec_id": "0", "contract_type": "高壓 3 段式", "contract_cap": "0", "volt": "22.8",
+        "trans_cap": "0", "cap_cap": "0", "low_volt": "380/220",
+        "total_kwh": "0", "total_fee": "0", "avg_price": "0", "avg_pf": "0", "peak_max": "0", "offpeak_max": "0"
     }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
@@ -39,37 +28,57 @@ def fetch_exact_data():
             file = st.session_state['global_excel']
             xl = pd.ExcelFile(file)
             
+            # --- 處理「表五之二」(電號、電力數據) ---
             sheet_p = next((s for s in xl.sheet_names if "五之二" in s), None)
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
-                if len(df_p) > 5 and len(df_p.columns) > 4:
+                if len(df_p) > 5:
+                    # 抓名稱
                     val = str(df_p.iloc[5, 4]).strip()
                     if val != "nan":
                         info["comp"] = val.split('(')[0]
-                import re
-                p3_text = str(df_p.iloc[2, 0]) 
-                id_match = re.search(r'\d{11}', p3_text.replace("-", ""))
-                if id_match: 
-                    info["elec_id"] = id_match.group()
-                try:
-                    # 抓第 22 列 (索引 21) 的合計數據
-                    row_total = df_p.iloc[21, :].tolist()
-                    info["total_kwh"] = f"{int(float(row_total[12])):,d}" # M欄
-                    info["total_fee"] = f"{int(float(row_total[15])):,d}" # P欄
+                    
+                    # 抓電號 (A3格)
+                    import re
+                    p3_text = str(df_p.iloc[2, 0])
+                    id_match = re.search(r'\d{11}', p3_text.replace("-", ""))
+                    if id_match:
+                        info["elec_id"] = id_match.group()
 
-                    # 抓第 23 列 (索引 22) 的平均數據
-                    row_avg = df_p.iloc[22, :].tolist()
-                    info["contract_cap"] = str(int(float(row_avg[3])))   # D欄
-                    info["avg_pf"] = str(int(float(row_avg[14])))         # O欄
-                except Exception as e:
-                    pass # 如果這張表格式不對，就跳過不抓，不讓程式當掉
-                # --- 電力抓取結束 ---
+                    # 抓合計與平均 (固定索引)
+                    try:
+                        row_total = df_p.iloc[21, :].tolist()
+                        info["total_kwh"] = f"{int(float(row_total[12])):,d}" 
+                        info["total_fee"] = f"{int(float(row_total[15])):,d}" 
+
+                        row_avg = df_p.iloc[22, :].tolist()
+                        info["contract_cap"] = str(int(float(row_avg[3])))   
+                        info["avg_pf"] = str(int(float(row_avg[14])))
+                        info["avg_price"] = str(round(float(row_avg[15]), 2))
+                    except:
+                        pass
+
+            # --- 處理「表八」(變壓器、電容器) ---
+            sheet_8 = next((s for s in xl.sheet_names if "八" in s), None)
+            if sheet_8:
+                df_8 = pd.read_excel(file, sheet_name=sheet_8, header=None)
+                try:
+                    # 變壓器容量加總 F8, G8, H8 (索引 7, 欄 5, 6, 7)
+                    t_sum = 0
+                    for c in [5, 6, 7]:
+                        v = df_8.iloc[7, c]
+                        if pd.notnull(v): t_sum += float(v)
+                    info["trans_cap"] = f"{int(t_sum):,d}"
+                    # 高壓電容器 O26 (索引 25, 欄 14)
+                    info["cap_cap"] = str(int(float(df_8.iloc[25, 14])))
+                except:
+                    pass
+
+            # --- 處理「基本資料」(人數、面積、工時) ---
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
             if sheet_b:
                 df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
-                                  
-                except:
-                    pass # 防止 Excel 格式不對時當掉
+                
                 def get_near_value(items, keyword, min_val=0):
                     import re
                     for i, item in enumerate(items):
@@ -89,45 +98,41 @@ def fetch_exact_data():
                     row_list = list(df_b.iloc[r, :])
                     row_str = "".join([str(i) for i in row_list])
                     if "員工人數" in row_str:
-                        res = get_near_value(row_list, "員工人數"); 
+                        res = get_near_value(row_list, "員工人數")
                         if res: info["emp"] = res
                     if "全年工作時數" in row_str:
-                        res = get_near_value(row_list, "全年工作時數"); 
+                        res = get_near_value(row_list, "全年工作時數")
                         if res: info["hours"] = res
                     if "總樓地板面積" in row_str:
-                        res = get_near_value(row_list, "總樓地板面積", min_val=100); 
+                        res = get_near_value(row_list, "總樓地板面積", min_val=100)
                         if res: info["area"] = res
                     if "總空調使用面積" in row_str:
-                        res = get_near_value(row_list, "總空調使用面積", min_val=100); 
+                        res = get_near_value(row_list, "總空調使用面積", min_val=100)
                         if res: info["air_area"] = res
-                            # 這是針對表五之二的數據對應
 
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
+            
     return info
 
 # --- 3. 介面 ---
-st.title("📋 用戶簡介自動化")
+st.title("📋 節能診斷自動化工具")
 data_pack = fetch_exact_data()
 
-# 把自動帶入的資料收進摺疊盒 (expander)
-with st.expander("🔍 檢視/微調自動抓取資料 (通常不需修改)"):
+with st.expander("🔍 檢視/微調自動抓取資料"):
     ec1, ec2 = st.columns(2)
     with ec1:
-        v_comp = st.text_input("用戶名稱 (紅字1)", data_pack["comp"])
-        v_area = st.text_input("總面積 (紅字2)", data_pack["area"])
-        v_air = st.text_input("空調面積 (紅字3)", data_pack["air_area"])
+        v_comp = st.text_input("用戶名稱", data_pack["comp"])
+        v_area = st.text_input("總面積", data_pack["area"])
+        v_air = st.text_input("空調面積", data_pack["air_area"])
     with ec2:
-        v_emp = st.text_input("員工人數 (紅字4)", data_pack["emp"])
-        v_hours = st.text_input("工作時數 (紅字5)", data_pack["hours"])
+        v_emp = st.text_input("員工人數", data_pack["emp"])
+        v_hours = st.text_input("工作時數", data_pack["hours"])
 
-# 這裡單獨放「診斷日期」，因為你說這個最常改
-v_date = st.text_input("📅 診斷日期 (紅字6)", data_pack["date"])
+v_date = st.text_input("📅 診斷日期", data_pack["date"])
 
-# --- 電力系統介面 (維持原樣) ---
 st.markdown("### ⚡ 電力系統資料")
 e_c1, e_c2, e_c3 = st.columns(3)
-# ... 下面原本 e_c1, e_c2, e_c3 的內容維持不變 ...
 with e_c1:
     v_elec_id = st.text_input("台電電號", data_pack["elec_id"])
     v_contract_type = st.text_input("契約型式", data_pack["contract_type"])
@@ -143,18 +148,15 @@ with e_c3:
     v_cap_cap = st.text_input("電容器容量 (kVAR)", data_pack["cap_cap"])
     v_avg_price = st.text_input("平均單價", data_pack["avg_price"])
     v_offpeak_max = st.text_input("離峰最高需量", data_pack["offpeak_max"])
-# --- 4. 封裝 Word 生成邏輯 ---
+
 # --- 4. 封裝 Word 生成邏輯 ---
 def generate_docx():
     doc = Document()
-    # 1. 標題
     p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
     p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
 
-    # 2. 內文段落
     p = doc.add_paragraph()
     p.paragraph_format.first_line_indent = Pt(28)
-    
     set_font_kai(p.add_run(v_comp), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("總建物面積"))
     set_font_kai(p.add_run(v_area), color=RGBColor(255, 0, 0))
@@ -167,63 +169,52 @@ def generate_docx():
     set_font_kai(p.add_run("人，全年使用時間約"))
     set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("小時，"))
-    
     set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
 
-    # --- 3. 電力系統表格 (5x3) ---
-    doc.add_paragraph() # 空一行
-    p_elec = doc.add_paragraph()
-    set_font_kai(p_elec.add_run("1.電力系統："), is_bold=True)
+    doc.add_paragraph()
+    set_font_kai(doc.add_paragraph().add_run("1.電力系統："), is_bold=True)
 
-    # 建立 5 列 3 欄的表格
     table = doc.add_table(rows=5, cols=3)
-    table.style = 'Table Grid' # 設定格線樣式
-
-    # --- 第一列：台電電號 (合併 3 欄) ---
-    cell_id = table.cell(0, 0)
-    cell_id.merge(table.cell(0, 2))
+    table.style = 'Table Grid'
+    
+    cell_id = table.cell(0, 0); cell_id.merge(table.cell(0, 2))
     p_id = cell_id.paragraphs[0]
     set_font_kai(p_id.add_run("台電電號："), size=12)
     set_font_kai(p_id.add_run(v_elec_id), size=12, color=RGBColor(255, 0, 0))
 
-    # --- 第二列：契約型式、容量、供電電壓 ---
     r1 = table.rows[1].cells
     set_font_kai(r1[0].paragraphs[0].add_run(f"契約型式：{v_contract_type}"), size=12)
     set_font_kai(r1[1].paragraphs[0].add_run(f"契約容量：{v_contract_cap} [kW]"), size=12)
     set_font_kai(r1[2].paragraphs[0].add_run(f"台電供電電壓：{v_volt} [kV]"), size=12)
 
-    # --- 第三列：變壓器、電容器、低壓側 ---
     r2 = table.rows[2].cells
     set_font_kai(r2[0].paragraphs[0].add_run(f"主變壓器總裝置容量：{v_trans_cap} [kVA]"), size=12)
     set_font_kai(r2[1].paragraphs[0].add_run(f"電容器裝置容量：{v_cap_cap} [kVAR]"), size=12)
     set_font_kai(r2[2].paragraphs[0].add_run(f"低壓側電壓：380/220 [V]"), size=12)
 
-    # --- 第四列：年總度數、年總金額、平均單價 ---
     r3 = table.rows[3].cells
     set_font_kai(r3[0].paragraphs[0].add_run(f"年總用電度：{v_total_kwh} [kWh]"), size=12)
     set_font_kai(r3[1].paragraphs[0].add_run(f"年總金額：{v_total_fee} [元]"), size=12)
     set_font_kai(r3[2].paragraphs[0].add_run(f"平均單價：{v_avg_price} [元/kWh]"), size=12)
 
-    # --- 第五列：平均功因、尖峰需量、離峰需量 ---
     r4 = table.rows[4].cells
     set_font_kai(r4[0].paragraphs[0].add_run(f"平均功因：{v_avg_pf} [%]"), size=12)
     set_font_kai(r4[1].paragraphs[0].add_run(f"尖峰最高需量：{v_peak_max} [kW]"), size=12)
     set_font_kai(r4[2].paragraphs[0].add_run(f"離峰最高需量：{v_offpeak_max} [kW]"), size=12)
 
-    # 統一將表格內容垂直置中
     for row in table.rows:
-        for cell in row.cells:
-            cell.vertical_alignment = 1
+        for cell in row.cells: cell.vertical_alignment = 1
 
     target_stream = io.BytesIO()
     doc.save(target_stream)
     return target_stream.getvalue()
-# --- 5. 一鍵下載按鈕 ---
+
+# --- 5. 下載按鈕 ---
 st.markdown("---")
 st.download_button(
     label="💾 生成並下載用戶簡介 Word",
-    data=generate_docx(),  # 點擊時直接調用生成邏輯
+    data=generate_docx(),
     file_name=f"能源用戶簡介_{v_comp}.docx",
     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
