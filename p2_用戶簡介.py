@@ -67,27 +67,42 @@ def fetch_exact_data():
                         return f"{final_num:,.2f}".replace(".00", "")
                     return None
 
-                for r in range(len(df_b)):
+               for r in range(len(df_b)):
                     row_list = list(df_b.iloc[r, :])
-                    row_str = "".join([str(i) for i in row_list])
                     
-                    if "員工人數" in row_str:
-                        res = find_correct_value(row_list, "員工人數", min_val=0)
-                        if res: info["emp"] = res
+                    # 輔助函數：找到關鍵字後，抓取其右邊最近的一個數字
+                    def get_near_value(items, keyword, min_val=0):
+                        import re
+                        for i, item in enumerate(items):
+                            if keyword in str(item):
+                                # 找到關鍵字後，往後搜尋 3 格
+                                for target in items[i+1 : i+4]:
+                                    clean = str(target).replace(",", "").replace(" ", "")
+                                    # 挖出數字
+                                    matches = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
+                                    if matches:
+                                        try:
+                                            num = float(matches[0])
+                                            if num > min_val:
+                                                return f"{num:,.2f}".replace(".00", "")
+                                        except: continue
+                        return None
 
-                    if "全年工作時數" in row_str:
-                        # 工作時數通常大於 500
-                        res = find_correct_value(row_list, "工作時數", min_val=500)
-                        if res: info["hours"] = res
+                    # 1. 員工人數 (關鍵字右側)
+                    emp_res = get_near_value(row_list, "員工人數")
+                    if emp_res: info["emp"] = emp_res
 
-                    if "總樓地板面積" in row_str:
-                        # 面積通常很大，設定 min_val=1000 避開年份和序號
-                        res = find_correct_value(row_list, "面積", min_val=1000)
-                        if res: info["area"] = res
+                    # 2. 全年工作時數 (關鍵字右側，通常在 D 欄)
+                    hours_res = get_near_value(row_list, "全年工作時數")
+                    if hours_res: info["hours"] = hours_res
 
-                    if "空調使用面積" in row_str:
-                        res = find_correct_value(row_list, "空調", min_val=1000)
-                        if res: info["air_area"] = res
+                    # 3. 總樓地板面積 (關鍵字右側，通常在 J 或 L 欄)
+                    area_res = get_near_value(row_list, "總樓地板面積", min_val=100)
+                    if area_res: info["area"] = area_res
+
+                    # 4. 空調使用面積 (關鍵字右側)
+                    air_res = get_near_value(row_list, "總空調使用面積", min_val=100)
+                    if air_res: info["air_area"] = air_res
                     
                     if "填表日期" in row_str:
                         for item in reversed(row_list):
