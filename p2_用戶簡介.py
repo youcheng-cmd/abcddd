@@ -5,14 +5,24 @@ from docx.shared import Pt, RGBColor
 from docx.oxml.ns import qn
 import io
 
-# --- 1. 自動抓取函數 ---
+# --- 1. 通用工具函數：標楷體設定 ---
+def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
+    run.font.name = '標楷體'
+    run.font.size = Pt(size)
+    run.font.bold = is_bold
+    run.font.color.rgb = color
+    # 強制中文字型
+    r = run._element
+    r.rPr.rFonts.set(qn('w:eastAsia'), '標楷體')
+
+# --- 2. 自動抓取函數 ---
 def fetch_basic_info():
     info = {
         "company_name": "", 
         "cid": "",
         "area": "0", 
         "employees": "0",
-        "air_area": "0" # 新增空調面積
+        "air_area": "0"
     }
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
@@ -27,9 +37,8 @@ def fetch_basic_info():
                     for c in range(len(df.columns)):
                         val = str(df.iloc[r, c]).replace(" ", "").replace("\n", "")
                         
-                        # 根據截圖座標調整位移
-                        if "09.能源用戶負責人" in val: # 負責人上方通常是名稱
-                             info["company_name"] = str(df.iloc[r-1, c+1]).split('(')[0].strip()
+                        if "能源用戶名稱" in val:
+                             info["company_name"] = str(df.iloc[r, c+2]).split('(')[0].strip()
                         elif "11.電號" in val:
                             info["cid"] = str(df.iloc[r, c+1]).strip()
                         elif "19.總樓地板面積" in val:
@@ -39,7 +48,6 @@ def fetch_basic_info():
                         elif "17.員工人數" in val:
                             info["employees"] = str(df.iloc[r, c+1]).strip()
                 
-                # 清除 nan 字眼
                 for k in info:
                     if info[k] == "nan" or info[k] == "None": info[k] = ""
                     
@@ -49,7 +57,7 @@ def fetch_basic_info():
             
     return info
 
-# --- 2. 顯示介面 ---
+# --- 3. 顯示介面 ---
 st.title("📋 用戶基本資料設定")
 basic_data = fetch_basic_info()
 
@@ -62,30 +70,48 @@ with col2:
     cid_val = st.text_input("台電電號", value=basic_data["cid"], key="p2_cid")
     emp_val = st.text_input("員工人數", value=basic_data["employees"], key="p2_emp")
 
-# --- 3. 產出 Word 與存入倉庫 ---
+# --- 4. 生成 Word 邏輯 ---
 if st.button("📝 生成基本資料報告"):
     doc = Document()
     
-    # 設定標體字型工具
-    def add_red_run(paragraph, text):
-        run = paragraph.add_run(text)
-        run.font.color.rgb = RGBColor(255, 0, 0)
-        run.font.bold = True
-        return run
-
-    doc.add_heading('二、能源用戶概述', 1)
-    doc.add_heading('2-1. 用戶簡介', 2)
+    # 【標題】黑色 14 號 加粗
+    title = doc.add_paragraph()
+    set_font_kai(title.add_run("二、能源用戶概述"), size=14, is_bold=True)
     
+    sub_title = doc.add_paragraph()
+    set_font_kai(sub_title.add_run("2-1. 用戶簡介"), size=14, is_bold=True)
+    
+    # 【內文】黑色 14 號
     p = doc.add_paragraph()
-    # 這裡示範如何拼湊 Word 文字與紅字
-    add_red_run(p, comp_name)
-    p.add_run(f" 總建物面積 ")
-    add_red_run(p, f"{area_val}")
-    p.add_run(" 平方公尺，空調使用面積 ")
-    add_red_run(p, f"{air_area_val}")
-    p.add_run(" 平方公尺。員工約有 ")
-    add_red_run(p, f"{emp_val}")
-    p.add_run(" 人。")
+    set_font_kai(p.add_run(comp_name), size=14)
+    set_font_kai(p.add_run(" 總建物面積 "), size=14)
+    set_font_kai(p.add_run(area_val), size=14)
+    set_font_kai(p.add_run(" 平方公尺，空調使用面積 "), size=14)
+    set_font_kai(p.add_run(air_area_val), size=14)
+    set_font_kai(p.add_run(" 平方公尺。員工約有 "), size=14)
+    set_font_kai(p.add_run(emp_val), size=14)
+    set_font_kai(p.add_run(" 人。"), size=14)
+
+    # --- 範例表格設定 (電力系統 10號 / 其他 11號) ---
+    doc.add_paragraph()
+    set_font_kai(doc.add_paragraph().add_run("1. 電力系統："), size=14, is_bold=True)
+    
+    # 電力系統表 (10 號字)
+    p_table = doc.add_table(rows=1, cols=2)
+    p_table.style = 'Table Grid'
+    cells = p_table.rows[0].cells
+    set_font_kai(cells[0].paragraphs[0].add_run("台電電號"), size=10)
+    set_font_kai(cells[1].paragraphs[0].add_run(cid_val), size=10)
+
+    doc.add_paragraph()
+    set_font_kai(doc.add_paragraph().add_run("2. 照明系統："), size=14, is_bold=True)
+    
+    # 其他系統表 (11 號字)
+    o_table = doc.add_table(rows=1, cols=2)
+    o_table.style = 'Table Grid'
+    o_cells = o_table.rows[0].cells
+    set_font_kai(o_cells[0].paragraphs[0].add_run("燈具種類"), size=11)
+    set_font_kai(o_cells[1].paragraphs[0].add_run("LED"), size=11)
 
     # 存入記憶體與全域倉庫
     buffer = io.BytesIO()
@@ -95,5 +121,5 @@ if st.button("📝 生成基本資料報告"):
     if 'report_warehouse' in st.session_state:
         st.session_state['report_warehouse']["2. 用戶基本資料"] = report_data
     
-    st.success("📂 報告已存入輸出中心！您可以在左側打包下載。")
+    st.success("📂 報告已存入輸出中心！")
     st.download_button("💾 下載此份用戶資料", report_data, "User_Info.docx")
