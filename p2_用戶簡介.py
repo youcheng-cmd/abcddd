@@ -98,7 +98,24 @@ with c2:
     v_emp = st.text_input("員工人數 (紅字4)", data_pack["emp"])
     v_hours = st.text_input("工作時數 (紅字5)", data_pack["hours"])
     v_date = st.text_input("診斷日期 (紅字6)", data_pack["date"])
-
+# --- 電力系統介面 ---
+st.markdown("### ⚡ 電力系統資料")
+e_c1, e_c2, e_c3 = st.columns(3)
+with e_c1:
+    v_elec_id = st.text_input("台電電號", data_pack["elec_id"])
+    v_contract_type = st.text_input("契約型式", data_pack["contract_type"])
+    v_total_kwh = st.text_input("年總用電度", data_pack["total_kwh"])
+    v_avg_pf = st.text_input("平均功因", data_pack["avg_pf"])
+with e_c2:
+    v_contract_cap = st.text_input("契約容量 (kW)", data_pack["contract_cap"])
+    v_trans_cap = st.text_input("主變壓器容量 (kVA)", data_pack["trans_cap"])
+    v_total_fee = st.text_input("年總金額", data_pack["total_fee"])
+    v_peak_max = st.text_input("尖峰最高需量", data_pack["peak_max"])
+with e_c3:
+    v_volt = st.text_input("供電電壓 (kV)", data_pack["volt"])
+    v_cap_cap = st.text_input("電容器容量 (kVAR)", data_pack["cap_cap"])
+    v_avg_price = st.text_input("平均單價", data_pack["avg_price"])
+    v_offpeak_max = st.text_input("離峰最高需量", data_pack["offpeak_max"])
 # --- 4. 封裝 Word 生成邏輯 ---
 def generate_docx():
     doc = Document()
