@@ -410,15 +410,11 @@ if all_transformer_data:
         set_font_kai(p6.add_run(f"{(invest_cost/10000):.1f} 萬元 ÷ {(savings_money/10000):.1f} 萬元/年 = "), size=12, color=RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p6.add_run(f"{payback_year:.1f} 年"), size=12, color=RGBColor(255, 0, 0)) # 紅字
         set_font_kai(p6.add_run("(註：回收年限會依報價廠家不同而有所增減)。"), size=12, is_bold=True)
-      output = io.BytesIO()
+     output = io.BytesIO()
 doc.save(output)
 report_data = output.getvalue()
 
-# 存入全域倉庫 (請確保這幾行完全靠左，前面不要有空格)
 if 'report_warehouse' in st.session_state:
     st.session_state['report_warehouse']["1. 變壓器分析報告"] = report_data
 
 st.success("✅ 變壓器報告已生成！您可以在左側側邊欄打包下載。")
-
-# 下載按鈕 (同樣完全靠左)
-st.download_button("💾 下載此份變壓器報告", report_data, "Transformer_Analysis.docx")
