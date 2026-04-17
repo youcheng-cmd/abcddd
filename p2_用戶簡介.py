@@ -254,55 +254,59 @@ def generate_docx(comp, area, air, emp, hours, date, elecs):
 
     p = doc.add_paragraph()
     p.paragraph_format.first_line_indent = Pt(28)
-    set_font_kai(p.add_run(v_comp), color=RGBColor(255, 0, 0))
+    # 注意這裡：要用傳進來的變數名稱
+    set_font_kai(p.add_run(comp), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("總建物面積"))
-    set_font_kai(p.add_run(v_area), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(area), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("平方公尺，空調使用面積"))
-    set_font_kai(p.add_run(v_air), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(air), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("平方公尺，能源使用主要以"))
     set_font_kai(p.add_run("電力"), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("為主，員工約有"))
-    set_font_kai(p.add_run(v_emp), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(emp), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("人，全年使用時間約"))
-    set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run(hours), color=RGBColor(255, 0, 0))
     set_font_kai(p.add_run("小時，"))
-    set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
+    set_font_kai(p.add_run(date), color=RGBColor(255, 0, 0)) 
     set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
-# 2. 循環生成多個電力表格
-for i, e in enumerate(elecs):
-    doc.add_paragraph()
-    set_font_kai(doc.add_paragraph().add_run("1.電力系統："), is_bold=True)
 
-    table = doc.add_table(rows=5, cols=3)
-    table.style = 'Table Grid'
-    
-    cell_id = table.cell(0, 0); cell_id.merge(table.cell(0, 2))
-    p_id = cell_id.paragraphs[0]
-    set_font_kai(p_id.add_run("台電電號："), size=12)
-    set_font_kai(p_id.add_run(v_elec_id), size=12, color=RGBColor(255, 0, 0))
+    # --- 關鍵：循環必須縮進在函數裡面 ---
+    for i, e in enumerate(elecs):
+        doc.add_paragraph() # 空行
+        set_font_kai(doc.add_paragraph().add_run(f"1.{i+1} 電力系統 (電號：{e['elec_id']})："), is_bold=True)
 
-    r1 = table.rows[1].cells
-    set_font_kai(r1[0].paragraphs[0].add_run(f"契約型式：{v_contract_type}"), size=12)
-    set_font_kai(r1[1].paragraphs[0].add_run(f"契約容量：{v_contract_cap} [kW]"), size=12)
-    set_font_kai(r1[2].paragraphs[0].add_run(f"台電供電電壓：{v_volt} [kV]"), size=12)
+        table = doc.add_table(rows=5, cols=3)
+        table.style = 'Table Grid'
+        
+        # 合併第一列並填入電號
+        cell_id = table.cell(0, 0); cell_id.merge(table.cell(0, 2))
+        p_id = cell_id.paragraphs[0]
+        set_font_kai(p_id.add_run("台電電號："), size=12)
+        set_font_kai(p_id.add_run(e['elec_id']), size=12, color=RGBColor(255, 0, 0))
 
-    r2 = table.rows[2].cells
-    set_font_kai(r2[0].paragraphs[0].add_run(f"主變壓器總裝置容量：{v_trans_cap} [kVA]"), size=12)
-    set_font_kai(r2[1].paragraphs[0].add_run(f"電容器裝置容量：{v_cap_cap} [kVAR]"), size=12)
-    set_font_kai(r2[2].paragraphs[0].add_run(f"低壓側電壓：380/220 [V]"), size=12)
+        # 這裡的變數全部都要改成 e['欄位名稱']，否則會當機
+        r1 = table.rows[1].cells
+        set_font_kai(r1[0].paragraphs[0].add_run(f"契約型式：高壓 3 段式"), size=12)
+        set_font_kai(r1[1].paragraphs[0].add_run(f"契約容量：{e['contract_cap']} [kW]"), size=12)
+        set_font_kai(r1[2].paragraphs[0].add_run(f"台電供電電壓：{e.get('volt', '22.8')} [kV]"), size=12)
 
-    r3 = table.rows[3].cells
-    set_font_kai(r3[0].paragraphs[0].add_run(f"年總用電度：{v_total_kwh} [kWh]"), size=12)
-    set_font_kai(r3[1].paragraphs[0].add_run(f"年總金額：{v_total_fee} [元]"), size=12)
-    set_font_kai(r3[2].paragraphs[0].add_run(f"平均單價：{v_avg_price} [元/kWh]"), size=12)
+        r2 = table.rows[2].cells
+        set_font_kai(r2[0].paragraphs[0].add_run(f"主變壓器總裝置容量：{e['trans_cap']} [kVA]"), size=12)
+        set_font_kai(r2[1].paragraphs[0].add_run(f"電容器裝置容量：{e['cap_cap']} [kVAR]"), size=12)
+        set_font_kai(r2[2].paragraphs[0].add_run(f"低壓側電壓：380/220 [V]"), size=12)
 
-    r4 = table.rows[4].cells
-    set_font_kai(r4[0].paragraphs[0].add_run(f"平均功因：{v_avg_pf} [%]"), size=12)
-    set_font_kai(r4[1].paragraphs[0].add_run(f"尖峰最高需量：{v_peak_max} [kW]"), size=12)
-    set_font_kai(r4[2].paragraphs[0].add_run(f"離峰最高需量：{v_offpeak_max} [kW]"), size=12)
+        r3 = table.rows[3].cells
+        set_font_kai(r3[0].paragraphs[0].add_run(f"年總用電度：{e['total_kwh']} [kWh]"), size=12)
+        set_font_kai(r3[1].paragraphs[0].add_run(f"年總金額：{e['total_fee']} [元]"), size=12)
+        set_font_kai(r3[2].paragraphs[0].add_run(f"平均單價：{e.get('avg_price', '0')} [元/kWh]"), size=12)
 
-    for row in table.rows:
-        for cell in row.cells: cell.vertical_alignment = 1
+        r4 = table.rows[4].cells
+        set_font_kai(r4[0].paragraphs[0].add_run(f"平均功因：{e['avg_pf']} [%]"), size=12)
+        set_font_kai(r4[1].paragraphs[0].add_run(f"尖峰最高需量：{e.get('peak_max', '0')} [kW]"), size=12)
+        set_font_kai(r4[2].paragraphs[0].add_run(f"離峰最高需量：{e.get('offpeak_max', '0')} [kW]"), size=12)
+
+        for row in table.rows:
+            for cell in row.cells: cell.vertical_alignment = 1
 
     target_stream = io.BytesIO()
     doc.save(target_stream)
@@ -310,9 +314,11 @@ for i, e in enumerate(elecs):
 
 # --- 5. 下載按鈕 ---
 st.markdown("---")
-st.download_button(
+# 點擊時才執行生成邏輯，並傳入網頁上的最新變數
+if st.download_button(
     label="💾 生成並下載用戶簡介 Word",
-    data=generate_docx(),
+    data=generate_docx(v_comp, v_area, v_air, v_emp, v_hours, v_date, elec_systems),
     file_name=f"能源用戶簡介_{v_comp}.docx",
     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+):
+    st.success("檔案下載準備就緒！")
