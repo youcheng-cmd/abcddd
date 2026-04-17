@@ -79,10 +79,10 @@ def fetch_exact_data():
                         res = get_near_value(row_list, "總空調使用面積", min_val=100)
                         if res: info["air_area"] = res
                     
-                    if "填表日期" in row_str:
+                    if "輔導日期" in row_str:
                         for item in reversed(row_list):
                             if item and "年" in str(item):
-                                info["date"] = str(item).replace("填表日期：", "").strip()
+                                info["date"] = str(item).replace("輔導日期：", "").strip()
                                 break
 
         except Exception as e:
