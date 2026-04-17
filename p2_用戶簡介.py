@@ -46,11 +46,26 @@ def fetch_exact_data():
                     val = str(df_p.iloc[5, 4]).strip()
                     if val != "nan":
                         info["comp"] = val.split('(')[0]
-
+                import re
+                p3_text = str(df_p.iloc[2, 0]) 
+                id_match = re.search(r'\d{11}', p3_text.replace("-", ""))
+                if id_match: 
+                    info["elec_id"] = id_match.group()
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
             if sheet_b:
                 df_b = pd.read_excel(file, sheet_name=sheet_b, header=None)
-                
+               try:
+                    # 抓第 22 列 (索引 21) 的合計數據
+                    row_total = df_p.iloc[21, :].tolist()
+                    info["total_kwh"] = f"{int(float(row_total[12])):,d}" # M欄
+                    info["total_fee"] = f"{int(float(row_total[15])):,d}" # P欄
+
+                    # 抓第 23 列 (索引 22) 的平均數據
+                    row_avg = df_p.iloc[22, :].tolist()
+                    info["contract_cap"] = str(int(float(row_avg[3])))   # D欄
+                    info["avg_pf"] = str(int(float(row_avg[14])))         # O欄
+                except:
+                    pass # 防止 Excel 格式不對時當掉
                 def get_near_value(items, keyword, min_val=0):
                     import re
                     for i, item in enumerate(items):
@@ -81,6 +96,8 @@ def fetch_exact_data():
                     if "總空調使用面積" in row_str:
                         res = get_near_value(row_list, "總空調使用面積", min_val=100); 
                         if res: info["air_area"] = res
+                            # 這是針對表五之二的數據對應
+
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
     return info
