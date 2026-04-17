@@ -16,8 +16,8 @@ def set_font_kai(run, size=14, is_bold=False, color=RGBColor(0, 0, 0)):
 
 # --- 2. 數據抓取邏輯 ---
 def fetch_exact_data():
-    # 預設日期改為 115年1月1日
-    info = {"comp": "", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
+    # 初始化資料，日期預設為 115年1月1日
+    info = {"comp": "未抓到名稱", "area": "0", "air_area": "0", "emp": "0", "hours": "0", "date": "115年1月1日"}
     
     if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
         try:
@@ -29,8 +29,9 @@ def fetch_exact_data():
             if sheet_p:
                 df_p = pd.read_excel(file, sheet_name=sheet_p, header=None)
                 if len(df_p) > 5 and len(df_p.columns) > 4:
-                    raw_comp = str(df_p.iloc[5, 4]).strip()
-                    info["comp"] = raw_comp.split('(')[0] if raw_comp != "nan" else "未抓到名稱"
+                    val = str(df_p.iloc[5, 4]).strip()
+                    if val != "nan":
+                        info["comp"] = val.split('(')[0]
 
             # 2. 抓數值 (包含 "三" 或 "基本資料" 的表)
             sheet_b = next((s for s in xl.sheet_names if "三" in s or "基本資料" in s), None)
@@ -42,18 +43,14 @@ def fetch_exact_data():
                     for i, item in enumerate(items):
                         if keyword in str(item):
                             for target in items[i+1 : i+5]:
-                                if target is None or str(target).lower() == "nan":
-                                    continue
+                                if target is None or str(target).lower() == "nan": continue
                                 clean = str(target).replace(",", "").replace(" ", "")
                                 matches = re.findall(r"[-+]?\d*\.\d+|\d+", clean)
                                 if matches:
                                     try:
-                                        # 轉為整數並加上千分位
                                         num = int(round(float(matches[0])))
-                                        if num > min_val:
-                                            return f"{num:,d}"
-                                    except:
-                                        continue
+                                        if num > min_val: return f"{num:,d}"
+                                    except: continue
                     return None
 
                 for r in range(len(df_b)):
@@ -63,92 +60,67 @@ def fetch_exact_data():
                     if "員工人數" in row_str:
                         res = get_near_value(row_list, "員工人數")
                         if res: info["emp"] = res
-
                     if "全年工作時數" in row_str:
                         res = get_near_value(row_list, "全年工作時數")
                         if res: info["hours"] = res
-
                     if "總樓地板面積" in row_str:
                         res = get_near_value(row_list, "總樓地板面積", min_val=100)
                         if res: info["area"] = res
-
                     if "總空調使用面積" in row_str:
                         res = get_near_value(row_list, "總空調使用面積", min_val=100)
                         if res: info["air_area"] = res
 
-                    # 雖然日期要手動，但這裡還是維持從 Excel 抓，如果抓不到最後會給預設值
-                    if "填表日期" in row_str:
-                        for item in reversed(row_list):
-                            if item and "年" in str(item):
-                                # 抓到後立刻清掉「填表日期：」字樣
-                                info["date"] = str(item).replace("填表日期：", "").replace(" ", "").strip()
-                                break
-
         except Exception as e:
             st.error(f"解析發生錯誤: {e}")
-            
-    # 最後清理資料
-    for k in info:
-        if "nan" in str(info[k]).lower() or not str(info[k]).strip() or info[k] == "0":
-            if k == "date":
-                info[k] = "115年1月1日"
-            else:
-                info[k] = "0" if k != "comp" else "未抓到名稱"
             
     return info
 
 # --- 3. 介面 ---
 st.title("📋 用戶簡介自動化")
-d = fetch_exact_data()
+data_pack = fetch_exact_data()
 
 c1, c2 = st.columns(2)
 with c1:
-    v_comp = st.text_input("用戶名稱 (紅字1)", d["comp"])
-    v_area = st.text_input("總面積 (紅字2)", d["area"])
-    v_air = st.text_input("空調面積 (紅字3)", d["air_area"])
+    v_comp = st.text_input("用戶名稱 (紅字1)", data_pack["comp"])
+    v_area = st.text_input("總面積 (紅字2)", data_pack["area"])
+    v_air = st.text_input("空調面積 (紅字3)", data_pack["air_area"])
 with c2:
-    v_emp = st.text_input("員工人數 (紅字4)", d["emp"])
-    v_hours = st.text_input("工作時數 (紅字5)", d["hours"])
-    # 這裡確保抓進來的變數已經清掉標籤，讓使用者手動填寫
-    v_date = st.text_input("診斷日期 (紅字6)", clean_display_date)
+    v_emp = st.text_input("員工人數 (紅字4)", data_pack["emp"])
+    v_hours = st.text_input("工作時數 (紅字5)", data_pack["hours"])
+    # 日期直接顯示，不帶標籤
+    v_date = st.text_input("診斷日期 (紅字6)", data_pack["date"])
+
 # --- 4. 生成 Word 並下載 ---
-doc = Document()
+if st.button("📝 生成預覽並準備下載"):
+    doc = Document()
+    p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
+    p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
 
-# 設定標題
-p_t1 = doc.add_paragraph(); set_font_kai(p_t1.add_run("二、能源用戶概述"), is_bold=True)
-p_t2 = doc.add_paragraph(); set_font_kai(p_t2.add_run("  2-1. 用戶簡介"), is_bold=True)
+    p = doc.add_paragraph()
+    p.paragraph_format.first_line_indent = Pt(28)
+    
+    set_font_kai(p.add_run(v_comp), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("總建物面積"))
+    set_font_kai(p.add_run(v_area), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("平方公尺，空調使用面積"))
+    set_font_kai(p.add_run(v_air), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("平方公尺，能源使用主要以"))
+    set_font_kai(p.add_run("電力"), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("為主，員工約有"))
+    set_font_kai(p.add_run(v_emp), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("人，全年使用時間約"))
+    set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
+    set_font_kai(p.add_run("小時，"))
+    
+    # 這裡只放 v_date，絕對乾淨
+    set_font_kai(p.add_run(v_date), color=RGBColor(255, 0, 0)) 
+    set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
 
-# 第一段內文
-p = doc.add_paragraph()
-p.paragraph_format.first_line_indent = Pt(28) # 首行縮排
-
-# 拼湊紅黑文字 (核心：刪除所有「填表日期：」標籤，直接放入日期變數)
-set_font_kai(p.add_run(v_comp), color=RGBColor(255, 0, 0))
-set_font_kai(p.add_run("總建物面積"))
-set_font_kai(p.add_run(v_area), color=RGBColor(255, 0, 0))
-set_font_kai(p.add_run("平方公尺，空調使用面積"))
-set_font_kai(p.add_run(v_air), color=RGBColor(255, 0, 0))
-set_font_kai(p.add_run("平方公尺，能源使用主要以"))
-set_font_kai(p.add_run("電力"), color=RGBColor(255, 0, 0))
-set_font_kai(p.add_run("為主，員工約有"))
-set_font_kai(p.add_run(v_emp), color=RGBColor(255, 0, 0))
-set_font_kai(p.add_run("人，全年使用時間約"))
-set_font_kai(p.add_run(v_hours), color=RGBColor(255, 0, 0))
-set_font_kai(p.add_run("小時，"))
-
-# 只放入純日期數字 (v_date 已經在輸入時被清理或手動填寫)
-# 找到這行，確保它是這樣寫：
-final_date_str = v_date.split("：")[-1].strip()
-set_font_kai(p.add_run(final_date_str), color=RGBColor(255, 0, 0)) # 紅
-
-set_font_kai(p.add_run("經由實地查訪貴單位之公用系統使用情形及輔導診斷概述如下："))
-
-# --- 生成下載按鈕 ---
-buffer = io.BytesIO()
-doc.save(buffer)
-st.download_button(
-    label="💾 生成並下載用戶簡介 Word",
-    data=buffer.getvalue(),
-    file_name=f"能源用戶簡介_{v_comp}.docx",
-    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    st.download_button(
+        label="💾 下載用戶簡介 Word",
+        data=buffer.getvalue(),
+        file_name=f"能源用戶簡介_{v_comp}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
