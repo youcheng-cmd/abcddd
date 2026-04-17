@@ -85,7 +85,7 @@ def extract_number(text):
     nums = re.findall(r"[-+]?\d*\.\d+|\d+", s)
     return float(nums[0]) if nums else 0.0
 
-if excel_file:
+if raw_df is not None:
     # 讀取 Excel
     all_transformer_data = []
     seen_sn = set() # 儲存已抓取的變壓器編號
