@@ -9,7 +9,7 @@ import re
 from collections import Counter
 # --- 【新增/檢查這一段】資料抓取邏輯 ---
 df = None
-
+raw_df = pd.read_excel(uploaded_file, sheet_name=target_sheet, header=None)
 # 1. 優先從全域暫存抓取檔案 (對應 app.py 的 global_excel)
 if 'global_excel' in st.session_state and st.session_state['global_excel'] is not None:
     try:
@@ -24,17 +24,18 @@ if 'global_excel' in st.session_state and st.session_state['global_excel'] is no
                 target_sheet = s
                 break
         
-        if target_sheet:
+       raw_df = pd.read_excel(uploaded_file, header=None)
             df = pd.read_excel(uploaded_file, sheet_name=target_sheet)
             st.info(f"💡 已自動從全域檔案抓取：{target_sheet}")
     except Exception as e:
         st.warning(f"全域檔案讀取失敗，請手動上傳：{e}")
 
-# 2. 如果全域沒檔案，才顯示本頁的上傳框
-if df is None:
-    uploaded_file = st.file_uploader("請上傳您的 Excel 檔案 (包含表八)", type=["xlsx"])
-    if uploaded_file:
-        df = pd.read_excel(uploaded_file) # 這裡預設讀取第一張表
+# 2. 如果全域沒檔案，才顯示本頁的局部上傳框
+if raw_df is None:
+    uploaded_file_local = st.file_uploader("請上傳您的 Excel 檔案 (包含表八)", type=["xlsx"], key="local_p1_up")
+    if uploaded_file_local:
+        # 注意：這裡要把讀取的結果存入 raw_df
+        raw_df = pd.read_excel(uploaded_file_local, header=None)
 
 # --- 以下接原本的 AMT_SPECS 資料庫與後續計算 ---
 # --- 這裡放資料庫 ---
